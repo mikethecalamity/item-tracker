@@ -170,7 +170,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             }
 
             Text(
-                "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                "Version ${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),

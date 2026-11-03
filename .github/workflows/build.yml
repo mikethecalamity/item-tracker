@@ -22,24 +22,36 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - name: Read version
-        run: echo "VERSION=$(tr -d '[:space:]' < version.txt)" >> "$GITHUB_ENV"
+        id: version
+        run: |
+          VERSION=$(tr -d '[:space:]' < version.txt)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          # Publish only when version.txt has a version that has not been released yet
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run unit tests
         run: ./gradlew test
 
       - name: Build APK
+        if: steps.version.outputs.release == 'true'
         run: ./gradlew assembleRelease
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk ItemTracker-${{ env.VERSION }}-build.${{ github.run_number }}.apk
+        if: steps.version.outputs.release == 'true'
+        run: cp app/build/outputs/apk/release/app-release.apk ItemTracker-${{ env.VERSION }}.apk
 
       - name: Publish release
+        if: steps.version.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.VERSION }}-build.${{ github.run_number }}
-          name: Item Tracker ${{ env.VERSION }} (build ${{ github.run_number }})
+          tag_name: v${{ env.VERSION }}
+          name: Item Tracker ${{ env.VERSION }}
           body: Tap the .apk below on your phone to download and install it.
-          files: ItemTracker-${{ env.VERSION }}-build.${{ github.run_number }}.apk
+          files: ItemTracker-${{ env.VERSION }}.apk
           make_latest: true
 
       - name: Upload test reports

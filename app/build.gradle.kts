@@ -13,9 +13,11 @@ android {
         applicationId = "com.itemtracker.app"
         minSdk = 26
         targetSdk = 36
-        // The version lives in version.txt; CI passes the build number so every build installs over the last one
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        // The version lives in version.txt; Android's always-increasing versionCode is derived from it (0.1.1 -> 101)
         versionName = rootProject.file("version.txt").readText().trim()
+        versionCode = versionName!!.split(".").map(String::toInt).let { (major, minor, patch) ->
+            major * 10_000 + minor * 100 + patch
+        }
     }
 
     signingConfigs {
