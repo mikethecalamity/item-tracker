@@ -1,0 +1,62 @@
+# Item Tracker
+
+A personal Android app that tracks how long household items last, so you can set subscription and reorder frequencies.
+
+## Build and install
+
+### Option 0: from your phone (GitHub builds it)
+Every push to `main` runs the **Build APK** workflow (`.github/workflows/build.yml`), which runs the tests and publishes
+`ItemTracker-<build>.apk` under **Releases**. On your phone, open the repository → Releases → tap the APK → Install.
+Builds are signed with `app/release.keystore`, so each new build installs over the previous one and keeps your data.
+
+### Option A: Android Studio (about 15 minutes, mostly downloads)
+1. Install **Android Studio** (free): https://developer.android.com/studio
+2. Unzip this folder, then **File → Open** and choose the `ItemTracker` folder. Let Gradle sync finish.
+   The build uses Gradle 9.1 and Android Gradle Plugin 9.0 (built-in Kotlin), so use a current Android Studio.
+3. On your phone, turn on **Developer options** (Settings → About phone → tap *Build number* 7 times), then turn on **USB debugging**.
+4. Plug the phone in, pick it in the device dropdown, and press **Run ▶**. The app installs and opens.
+
+To get an APK file instead: **Build → Build App Bundle(s) / APK(s) → Build APK(s)**. The file lands in `app/build/outputs/apk/debug/app-debug.apk`. Copy it to the phone and open it (allow "install unknown apps" when asked).
+
+### Option B: Claude Code on your computer
+With Android Studio installed (for the Android SDK), run `claude` in this folder and ask:
+"build the debug APK and fix any build errors".
+
+### Tests
+Unit tests (JUnit 6 + AssertJ) cover the logic: averages, rounding, order dates, CSV, sync merging and share parsing.
+Run them with `./gradlew test` or right-click the `test` folder in Android Studio → Run.
+
+## How it works
+
+- **Tap** an item that isn't in use to start it today (Undo appears briefly).
+- **Tap** an item that's in use to stop it. You'll be asked to confirm. "Other day…" lets you choose when it ran out.
+- **Long-press** an item to set a past start date, or to correct the current one.
+- **Green border** = in use. **Dark border** = not in use.
+- **☰ (bottom left)**: history, edit, picture, Reorder on Amazon, estimated order date.
+  Tap an entry to edit it, swipe left to delete it, or use **+ Add past use** to backfill.
+- **🗑 (bottom right)**: delete the item (asks first).
+- **+ (bottom middle)**: add an item. From the Amazon app, **Share → Item Tracker** fills in the link, name and picture.
+- **Order badge (top right)** appears when the order date is within your "due soon" window. Those items sort first, then everything is A→Z.
+
+### The numbers
+- Each use's length is stored in exact days and divided by the quantity it covered (per-unit days).
+  The average is the per-unit mean × the item's current quantity, so changing the quantity rescales it.
+- Shown values round **up** to: 1, 2, 3 weeks, 1 month, 5, 6, 7 weeks, 2 months, 3 months, …
+  (Months allow ~1.5 days of slack because calendar months vary in length.)
+- **Run-out** = in-use start + exact average.
+- **Order date** = the first order day (Settings) on or after run-out, if that's within "days you can go without" (default 7).
+  Otherwise, the order day one month earlier.
+
+### Google Drive sync
+Settings → *Create a new sync file*, then choose **Drive** in the picker (the Google Drive app must be installed).
+The app reads and merges the file on open and writes it shortly after each change.
+For partner mode, both phones choose the same file ("Use an existing sync file"). The newest change to each item and each history entry wins, and deletes carry over.
+If your partner shared the file with you, add it to your My Drive (Drive → ⋮ → Organize → Add shortcut) so it shows up in the picker.
+
+### CSV
+`name,amazon_url,quantity,in_use_since,use_start,use_end,use_quantity` with one row per past use and dates as `YYYY-MM-DD`.
+Import replaces everything, but a backup is saved first (Settings → *Restore data from before the last import*).
+
+### Amazon
+Amazon retired its product API for apps like this in 2026. The replacement requires an affiliate account with sales.
+The app reads the product page's title and picture the way a link preview does. If Amazon blocks that, add a picture yourself from the ☰ screen.
