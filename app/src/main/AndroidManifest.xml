@@ -20,8 +20,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Share from the Amazon app (or a browser) to Item Tracker; singleTask brings the one open copy forward -->
-            <intent-filter android:label="@string/share_label">
+        </activity>
+
+        <!-- Share from the Amazon app (or a browser) to Item Tracker; relays into the app's own window, then closes -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:label="@string/share_label"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
