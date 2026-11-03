@@ -32,12 +32,12 @@ internal class AmazonTest {
     @ParameterizedTest(name = "{0} -> {1}")
     @CsvSource(
         delimiter = '|',
-        textBlock = """
-            Brand Thing, 12 Count - Extra Words | Brand Thing
-            Paper Towels (Pack of 6)            | Paper Towels
-            Ab, cd                              | Ab, cd
-            A very long product title that keeps on going forever | A very long product title that keeps on
-        """,
+        value = [
+            "Brand Thing, 12 Count - Extra Words | Brand Thing",
+            "Paper Towels (Pack of 6) | Paper Towels",
+            "Ab, cd | Ab, cd",
+            "A very long product title that keeps on going forever | A very long product title that keeps on",
+        ],
     )
     fun shortNameTest(title: String, expected: String) {
         assertThat(Amazon.shortName(title)).isEqualTo(expected)
