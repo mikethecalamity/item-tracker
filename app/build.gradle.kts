@@ -13,9 +13,9 @@ android {
         applicationId = "com.itemtracker.app"
         minSdk = 26
         targetSdk = 36
-        // CI passes the build number so every build can install over the previous one
+        // The version lives in version.txt; CI passes the build number so every build installs over the last one
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
+        versionName = rootProject.file("version.txt").readText().trim()
     }
 
     signingConfigs {
@@ -41,6 +41,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
         unitTests.all { it.useJUnitPlatform() }

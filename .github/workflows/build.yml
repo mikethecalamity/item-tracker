@@ -21,6 +21,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      - name: Read version
+        run: echo "VERSION=$(tr -d '[:space:]' < version.txt)" >> "$GITHUB_ENV"
+
       - name: Run unit tests
         run: ./gradlew test
 
@@ -28,15 +31,15 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk ItemTracker-${{ github.run_number }}.apk
+        run: cp app/build/outputs/apk/release/app-release.apk ItemTracker-${{ env.VERSION }}-build.${{ github.run_number }}.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: Item Tracker build ${{ github.run_number }}
+          tag_name: v${{ env.VERSION }}-build.${{ github.run_number }}
+          name: Item Tracker ${{ env.VERSION }} (build ${{ github.run_number }})
           body: Tap the .apk below on your phone to download and install it.
-          files: ItemTracker-${{ github.run_number }}.apk
+          files: ItemTracker-${{ env.VERSION }}-build.${{ github.run_number }}.apk
           make_latest: true
 
       - name: Upload test reports

@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.itemtracker.app.BuildConfig
 import com.itemtracker.app.MainViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -167,6 +168,13 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     TextButton(onClick = { confirmRestore = true }) { Text("Restore data from before the last import") }
                 }
             }
+
+            Text(
+                "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
         }
     }
 

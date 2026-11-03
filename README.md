@@ -7,7 +7,8 @@ A personal Android app that tracks how long household items last, so you can set
 ### Option 0: from your phone (GitHub builds it)
 Every push to `main` runs the **Build APK** workflow (`.github/workflows/build.yml`), which runs the tests and publishes
 `ItemTracker-<build>.apk` under **Releases**. On your phone, open the repository → Releases → tap the APK → Install.
-Builds are signed with `app/release.keystore`, so each new build installs over the previous one and keeps your data.
+The app version lives in `version.txt` (currently 0.1.0); change it there to bump the version. Each release is tagged
+`v<version>-build.<n>`. Builds are signed with `app/release.keystore`, so each new build installs over the previous one and keeps your data.
 
 ### Option A: Android Studio (about 15 minutes, mostly downloads)
 1. Install **Android Studio** (free): https://developer.android.com/studio
