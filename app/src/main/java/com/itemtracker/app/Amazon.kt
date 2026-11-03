@@ -22,11 +22,13 @@ object Amazon {
     private const val MAX_SHORT_NAME = 40
     private val URL_PATTERN = Regex("""https?://\S+""")
     private val AMAZON_HOST_PATTERN = Regex("""(?i)(amazon\.|amzn\.|a\.co/)""")
-    private val SHARE_PREFIXES = listOf(
-        Regex("""(?i)^check out this (deal|item|product)( on amazon)?[:!]?"""),
-        Regex("""(?i)^i found this on amazon[:!]?"""),
+    /** Generic share phrases such as "Check this out at Amazon" that are not product names */
+    private val SHARE_PREFIX = Regex(
+        """(?i)^(check (this|it) out|check out this( (deal|item|product))?|i found this|look what i found|""" +
+            """found (this|it))(\s+(at|on|from)\s+amazon(\.com)?)?\s*[:!.\-–]?""",
     )
-    private val SHARE_SUFFIX = Regex("""(?i)\s*(on amazon|amazon\.com)\s*:?\s*$""")
+    private val SHARE_SUFFIX = Regex("""(?i)\s+(at|on|from)\s+amazon(\.com)?\s*[:!.]?\s*$""")
+    private val AMAZON_ONLY = Regex("""(?i)^amazon(\.com)?$""")
     private val NAME_SEPARATORS = listOf(" - ", " – ", ",", "|", "(", ":")
     private val TITLE_PATTERNS = listOf(
         Regex("""id="productTitle"[^>]*>\s*([^<]+)"""),
@@ -60,11 +62,11 @@ object Amazon {
     fun parseShare(text: String?, subject: String?): Shared {
         val sharedText = text.orEmpty()
         val url = URL_PATTERN.find(sharedText)?.value?.trimEnd('.', ',', ')', '"')
-        val rawTitle = subject?.takeIf(String::isNotBlank) ?: sharedText.replace(URL_PATTERN, "")
-        val title = SHARE_PREFIXES.fold(rawTitle.trim()) { current, prefix -> current.replace(prefix, "") }
-            .replace(SHARE_SUFFIX, "")
-            .trim().trim('"', '“', '”', ':', '-').trim()
-        return Shared(url, title.ifBlank { null })
+        // The subject sometimes holds the product title; the text often holds only a generic phrase and the link
+        val title = listOf(subject.orEmpty(), sharedText.replace(URL_PATTERN, ""))
+            .map(::cleanSharedTitle)
+            .firstOrNull(String::isNotBlank)
+        return Shared(url, title)
     }
 
     /**
@@ -135,6 +137,12 @@ object Amazon {
     catch (e: RuntimeException) {
         Log.w(TAG, "Failed to download picture $url", e)
         null
+    }
+
+    private fun cleanSharedTitle(text: String): String {
+        val cleaned = text.trim().replace(SHARE_PREFIX, "").replace(SHARE_SUFFIX, "")
+            .trim().trim('"', '“', '”', ':', '-').trim()
+        return if (AMAZON_ONLY.matches(cleaned)) "" else cleaned
     }
 
     private fun open(url: String): HttpURLConnection {

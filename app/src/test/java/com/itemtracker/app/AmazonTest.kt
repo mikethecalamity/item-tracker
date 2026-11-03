@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 
 private const val SHORT_LINK = "https://a.co/d/0abcDEF"
 
@@ -22,6 +23,26 @@ internal class AmazonTest {
         val shared = Amazon.parseShare(SHORT_LINK, "Brand Soap")
 
         assertThat(shared).isEqualTo(Amazon.Shared(SHORT_LINK, "Brand Soap"))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(
+        strings = [
+            "Check this out at Amazon $SHORT_LINK",
+            "Check this out at Amazon\n$SHORT_LINK",
+            "Check it out on Amazon.com! $SHORT_LINK",
+            "Amazon.com $SHORT_LINK",
+        ],
+    )
+    fun parseShareTestGenericPhrase(text: String) {
+        assertThat(Amazon.parseShare(text, "Check this out at Amazon")).isEqualTo(Amazon.Shared(SHORT_LINK, null))
+    }
+
+    @Test
+    fun parseShareTestGenericTextWithTitle() {
+        val shared = Amazon.parseShare("Check this out at Amazon: Echo Dot by Amazon $SHORT_LINK", null)
+
+        assertThat(shared).isEqualTo(Amazon.Shared(SHORT_LINK, "Echo Dot by Amazon"))
     }
 
     @Test
