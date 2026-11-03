@@ -50,6 +50,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableSyncStatus = MutableStateFlow<String?>(null)
     private val mutableMessage = MutableStateFlow<String?>(null)
     private val mutablePendingShare = MutableStateFlow<Amazon.Shared?>(null)
+    private val mutableUpdateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
 
     /** All items, including deleted tombstones */
     val data: StateFlow<AppData> = mutableData.asStateFlow()
@@ -65,7 +66,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Product shared into the app, waiting to pre-fill the add dialog */
     val pendingShare: StateFlow<Amazon.Shared?> = mutablePendingShare.asStateFlow()
 
+    /** Progress of the in-app updater */
+    val updateState: StateFlow<UpdateState> = mutableUpdateState.asStateFlow()
+
     private val context: Context get() = getApplication()
+
+    /** Steps of checking for, downloading and installing an update */
+    sealed interface UpdateState {
+        data object Idle : UpdateState
+        data object Checking : UpdateState
+        data object UpToDate : UpdateState
+        data class Available(val release: Updater.Release) : UpdateState
+        data object Downloading : UpdateState
+        data object NeedsPermission : UpdateState
+        data class Failed(val reason: String) : UpdateState
+    }
 
     /** Mark the snackbar message as shown */
     fun consumeMessage() {
@@ -383,6 +398,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     mutableSyncStatus.value = "Sync failed: ${e.message ?: "file unavailable"}"
                 }
             }
+        }
+    }
+
+    /** Ask GitHub whether a newer release exists */
+    fun checkForUpdate() = viewModelScope.launch(Dispatchers.IO) {
+        mutableUpdateState.value = UpdateState.Checking
+        try {
+            val release = Updater.latestRelease()
+            mutableUpdateState.value = if (Updater.isNewer(release.version, BuildConfig.VERSION_NAME)) {
+                UpdateState.Available(release)
+            }
+            else {
+                UpdateState.UpToDate
+            }
+        }
+        catch (e: IOException) {
+            Log.w(TAG, "Failed to check for updates", e)
+            mutableUpdateState.value = UpdateState.Failed("Could not reach GitHub")
+        }
+        catch (e: IllegalStateException) {
+            Log.w(TAG, "Failed to read the latest release", e)
+            mutableUpdateState.value = UpdateState.Failed(e.message ?: "Could not read the latest release")
+        }
+    }
+
+    /**
+     * Download a release and open the Android installer, or the install permission setting when it is missing
+     *
+     * @param release the [Updater.Release] to install
+     */
+    fun installUpdate(release: Updater.Release) = viewModelScope.launch(Dispatchers.IO) {
+        if (!Updater.canInstall(context)) {
+            mutableUpdateState.value = UpdateState.NeedsPermission
+            Updater.openInstallPermissionSettings(context)
+            return@launch
+        }
+        mutableUpdateState.value = UpdateState.Downloading
+        try {
+            val apk = Updater.download(context, release)
+            mutableUpdateState.value = UpdateState.Available(release)
+            Updater.install(context, apk)
+        }
+        catch (e: IOException) {
+            Log.w(TAG, "Failed to download ${release.apkUrl}", e)
+            mutableUpdateState.value = UpdateState.Failed("Download failed")
         }
     }
 

@@ -11,6 +11,10 @@ The app version lives in `version.txt`. A push publishes a release (tagged `v<ve
 been released yet, so bump it for every release: patch for fixes, minor for features. Android's internal versionCode is
 derived from it (0.1.1 → 101). Builds are signed with `app/release.keystore`, so each new build installs over the previous one and keeps your data.
 
+After the first install, update from inside the app: **Settings → Check for updates → Update to x.y.z**.
+The first time, Android asks you to allow Item Tracker to install apps. This needs the repository to stay public, since
+the app reads the latest release without signing in to GitHub.
+
 ### Option A: Android Studio (about 15 minutes, mostly downloads)
 1. Install **Android Studio** (free): https://developer.android.com/studio
 2. Unzip this folder, then **File → Open** and choose the `ItemTracker` folder. Let Gradle sync finish.

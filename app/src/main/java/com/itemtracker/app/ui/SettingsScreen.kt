@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.itemtracker.app.BuildConfig
 import com.itemtracker.app.MainViewModel
+import com.itemtracker.app.Updater
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -55,6 +57,7 @@ import java.time.LocalDate
 fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -169,12 +172,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 }
             }
 
-            Text(
-                "Version ${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
+            UpdateSection(updateState, onCheck = viewModel::checkForUpdate, onInstall = viewModel::installUpdate)
         }
     }
 
@@ -205,6 +203,42 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         onConfirm = { viewModel.stopSync()
             confirmUnlink = false },
     )
+}
+
+@Composable
+private fun UpdateSection(
+    state: MainViewModel.UpdateState,
+    onCheck: () -> Unit,
+    onInstall: (Updater.Release) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Version ${BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        when (state) {
+            MainViewModel.UpdateState.Idle -> TextButton(onClick = onCheck) { Text("Check for updates") }
+            MainViewModel.UpdateState.Checking -> Text("Checking…", style = MaterialTheme.typography.bodySmall)
+            MainViewModel.UpdateState.UpToDate -> TextButton(onClick = onCheck) { Text("Up to date. Check again") }
+            is MainViewModel.UpdateState.Available -> Button(onClick = { onInstall(state.release) }) {
+                Text("Update to ${state.release.version}")
+            }
+            MainViewModel.UpdateState.Downloading -> Text("Downloading…", style = MaterialTheme.typography.bodySmall)
+            MainViewModel.UpdateState.NeedsPermission -> {
+                Text(
+                    "Allow \"Install unknown apps\" for Item Tracker, then come back and check again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                )
+                TextButton(onClick = onCheck) { Text("Check for updates") }
+            }
+            is MainViewModel.UpdateState.Failed -> {
+                Text(state.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = onCheck) { Text("Try again") }
+            }
+        }
+    }
 }
 
 @Composable
