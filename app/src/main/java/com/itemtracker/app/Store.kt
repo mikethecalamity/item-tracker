@@ -60,7 +60,7 @@ object Store {
      *
      * @param text the JSON text
      * @return the data, empty when the text is blank
-     * @throws IllegalArgumentException if the text is not Item Tracker data
+     * @throws IllegalArgumentException if the text is not Subscription Tracker data
      */
     fun fromJson(text: String): AppData {
         if (text.isBlank()) return AppData()
@@ -69,10 +69,10 @@ object Store {
             return AppData((0 until itemsJson.length()).map { index -> itemFromJson(itemsJson.getJSONObject(index)) })
         }
         catch (e: JSONException) {
-            throw IllegalArgumentException("Not Item Tracker data", e)
+            throw IllegalArgumentException("Not Subscription Tracker data", e)
         }
         catch (e: RuntimeException) {
-            throw IllegalArgumentException("Not Item Tracker data", e)
+            throw IllegalArgumentException("Not Subscription Tracker data", e)
         }
     }
 

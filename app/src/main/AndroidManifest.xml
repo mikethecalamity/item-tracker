@@ -24,7 +24,8 @@
             </intent-filter>
         </activity>
 
-        <!-- Share from the Amazon app (or a browser) to Item Tracker; relays into the app's own window, then closes -->
+        <!-- Share from the Amazon app (or a browser) to Subscription Tracker.
+             Relays into the app's own window, then closes. -->
         <activity
             android:name=".ShareActivity"
             android:exported="true"

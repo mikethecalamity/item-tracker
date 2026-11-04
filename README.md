@@ -1,4 +1,6 @@
-# Item Tracker
+# Subscription Tracker
+
+(Formerly Item Tracker. The package name `com.itemtracker.app` is unchanged, so updates install over earlier versions.)
 
 A personal Android app that tracks how long household items last, so you can set subscription and reorder frequencies.
 
@@ -6,13 +8,13 @@ A personal Android app that tracks how long household items last, so you can set
 
 ### Option 0: from your phone (GitHub builds it)
 Every push to `main` runs the **Build APK** workflow (`.github/workflows/build.yml`), which runs the tests and publishes
-`ItemTracker-<version>.apk` under **Releases**. On your phone, open the repository → Releases → tap the APK → Install.
+`SubscriptionTracker-<version>.apk` under **Releases**. On your phone, open the repository → Releases → tap the APK → Install.
 The app version lives in `version.txt`. A push publishes a release (tagged `v<version>`) only when that version has not
 been released yet, so bump it for every release: patch for fixes, minor for features. Android's internal versionCode is
 derived from it (0.1.1 → 101). Builds are signed with `app/release.keystore`, so each new build installs over the previous one and keeps your data.
 
 After the first install, update from inside the app: **Settings → Check for updates → Update to x.y.z**.
-The first time, Android asks you to allow Item Tracker to install apps. This needs the repository to stay public, since
+The first time, Android asks you to allow Subscription Tracker to install apps. This needs the repository to stay public, since
 the app reads the latest release without signing in to GitHub.
 
 ### Option A: Android Studio (about 15 minutes, mostly downloads)
@@ -41,7 +43,7 @@ Run them with `./gradlew test` or right-click the `test` folder in Android Studi
 - **☰ (bottom left)**: history, edit, picture, Reorder on Amazon, estimated order date.
   Tap an entry to edit it, swipe left to delete it, or use **+ Add past use** to backfill.
 - **🗑 (bottom right)**: delete the item (asks first).
-- **+ (bottom middle)**: add an item. From the Amazon app, **Share → Item Tracker** fills in the link, name and picture.
+- **+ (bottom middle)**: add an item. From the Amazon app, **Share → Subscription Tracker** fills in the link, name and picture.
 - **Order badge (top right)** appears when the order date is within your "due soon" window. Those items sort first, then everything is A→Z.
 
 ### The numbers

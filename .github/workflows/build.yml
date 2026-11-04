@@ -42,16 +42,16 @@ jobs:
 
       - name: Rename APK
         if: steps.version.outputs.release == 'true'
-        run: cp app/build/outputs/apk/release/app-release.apk ItemTracker-${{ env.VERSION }}.apk
+        run: cp app/build/outputs/apk/release/app-release.apk SubscriptionTracker-${{ env.VERSION }}.apk
 
       - name: Publish release
         if: steps.version.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
-          name: Item Tracker ${{ env.VERSION }}
+          name: Subscription Tracker ${{ env.VERSION }}
           body: Tap the .apk below on your phone to download and install it.
-          files: ItemTracker-${{ env.VERSION }}.apk
+          files: SubscriptionTracker-${{ env.VERSION }}.apk
           make_latest: true
 
       - name: Upload test reports

@@ -122,7 +122,7 @@ fun AddItemDialog(
                     if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                 }
                 Text(
-                    "Tip: in the Amazon app, tap Share → Item Tracker to fill this in automatically.",
+                    "Tip: in the Amazon app, tap Share → Subscription Tracker to fill this in automatically.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

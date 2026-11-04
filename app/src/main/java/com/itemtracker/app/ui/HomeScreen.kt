@@ -82,7 +82,7 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Item Tracker") },
+                title = { Text("Subscription Tracker") },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
@@ -103,7 +103,8 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
         if (sortedItems.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding).padding(32.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    "No items yet.\n\nTap + to add one, or use Share → Item Tracker on a product in the Amazon app.",
+                    "No items yet.\n\nTap + to add one, or use Share → Subscription Tracker " +
+                        "on a product in the Amazon app.",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

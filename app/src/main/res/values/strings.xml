@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Item Tracker</string>
-    <string name="share_label">Add to Item Tracker</string>
+    <string name="app_name">Subscription Tracker</string>
+    <string name="share_label">Add to Subscription Tracker</string>
 </resources>

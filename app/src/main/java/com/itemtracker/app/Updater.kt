@@ -18,7 +18,7 @@ object Updater {
     private const val LATEST_RELEASE_URL = "https://api.github.com/repos/mikethecalamity/item-tracker/releases/latest"
     private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
     private const val UPDATE_DIRECTORY = "updates"
-    private const val UPDATE_FILE = "ItemTracker-update.apk"
+    private const val UPDATE_FILE = "SubscriptionTracker-update.apk"
     private const val TIMEOUT_MILLIS = 15_000
 
     /** A published release and its APK download link */

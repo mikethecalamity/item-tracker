@@ -127,7 +127,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 )
                 if (settings.syncUri == null) {
                     OutlinedButton(
-                        onClick = { createSync.launch("item-tracker-sync.json") },
+                        onClick = { createSync.launch("subscription-tracker-sync.json") },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Create a new sync file")
@@ -153,7 +153,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
             Section("Export & import") {
                 OutlinedButton(
-                    onClick = { exportCsv.launch("item-tracker-${LocalDate.now()}.csv") },
+                    onClick = { exportCsv.launch("subscription-tracker-${LocalDate.now()}.csv") },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Export CSV") }
                 OutlinedButton(
@@ -227,7 +227,7 @@ private fun UpdateSection(
             MainViewModel.UpdateState.Downloading -> Text("Downloading…", style = MaterialTheme.typography.bodySmall)
             MainViewModel.UpdateState.NeedsPermission -> {
                 Text(
-                    "Allow \"Install unknown apps\" for Item Tracker, then come back and check again.",
+                    "Allow \"Install unknown apps\" for Subscription Tracker, then come back and check again.",
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                 )

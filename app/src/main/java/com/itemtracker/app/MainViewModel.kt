@@ -382,8 +382,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     mutableSyncStatus.value = "Synced " + LocalTime.now().format(SYNC_TIME_FORMAT)
                 }
                 catch (e: IllegalArgumentException) {
-                    Log.w(TAG, "Sync file $uri is not Item Tracker data", e)
-                    mutableSyncStatus.value = "The sync file is not Item Tracker data, so it was not overwritten"
+                    Log.w(TAG, "Sync file $uri is not Subscription Tracker data", e)
+                    mutableSyncStatus.value =
+                        "The sync file is not Subscription Tracker data, so it was not overwritten"
                 }
                 catch (e: SecurityException) {
                     Log.w(TAG, "Lost access to sync file $uri", e)

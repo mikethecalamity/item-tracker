@@ -37,10 +37,10 @@ internal class StoreTest {
     }
 
     @Test
-    fun fromJsonTestNotItemTrackerData() {
+    fun fromJsonTestNotTrackerData() {
         assertThatExceptionOfType(IllegalArgumentException::class.java)
             .isThrownBy { Store.fromJson("""{"items":[{"name":"no id"}]}""") }
-            .withMessage("Not Item Tracker data")
+            .withMessage("Not Subscription Tracker data")
     }
 
     @Test
