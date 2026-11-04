@@ -168,7 +168,7 @@ fun ItemCard(
     }
 }
 
-/** Show the real average in bold, or the subscription frequency in gray italics as a rough estimate */
+/** Show the real average in bold, or the subscription frequency in gray italics for reference */
 @Composable
 private fun DurationLabel(item: Item) {
     val average = Calc.averageDays(item)

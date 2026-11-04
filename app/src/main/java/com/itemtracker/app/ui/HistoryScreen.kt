@@ -58,7 +58,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -288,14 +287,6 @@ private fun SummaryCard(item: Item, settings: com.itemtracker.app.Settings, onCa
             if (item.activeStart != null) {
                 LabeledValue("In use since", Calc.longDate(item.activeStart))
                 if (estimate != null) {
-                    if (estimate.rough) {
-                        Text(
-                            "Rough estimate from the subscription until the first finished use",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                     LabeledValue("Est. run-out", Calc.longDate(estimate.runOut))
                     LabeledValue(
                         "Est. order date",
@@ -308,9 +299,12 @@ private fun SummaryCard(item: Item, settings: com.itemtracker.app.Settings, onCa
                     )
                 }
                 else {
+                    LabeledValue("Est. run-out", "—")
+                    LabeledValue("Est. order date", "—")
                     Text(
-                        "An order date appears after the first finished use.",
+                        "Estimates appear after the first finished use.",
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 TextButton(onClick = onCancelCurrent, contentPadding = PaddingValues(0.dp)) {

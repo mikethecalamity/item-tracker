@@ -64,17 +64,8 @@ object Calc {
         Frequency("7 weeks", 7, StepUnit.WEEK),
     ) + (2..12).map { months -> Frequency("$months months", months, StepUnit.MONTH) }
 
-    /**
-     * Estimated run-out and order dates
-     *
-     * @property rough whether the estimate comes from the subscription setting instead of a real average
-     */
-    data class Estimate(
-        val runOut: LocalDate,
-        val orderDate: LocalDate,
-        val daysUntilOrder: Long,
-        val rough: Boolean = false,
-    )
+    /** Estimated run-out and order dates for an item in use */
+    data class Estimate(val runOut: LocalDate, val orderDate: LocalDate, val daysUntilOrder: Long)
 
     /**
      * Count the days between two dates, where a same-day start and stop counts as one day
@@ -177,28 +168,19 @@ object Calc {
     }
 
     /**
-     * Estimate the run-out and order dates of an item
-     *
-     * With finished uses, the run-out is the in-use start plus the average. Without them, a subscription gives a
-     * rough estimate: the in-use start plus the frequency, or else the next scheduled delivery.
+     * Estimate the run-out and order dates of an item from its real average; the subscription is never used
      *
      * @param item the [Item] to use
      * @param settings the [Settings] to use
      * @param today the current date
-     * @return the estimate, or null when there is nothing to estimate from
+     * @return the estimate, or null when the item is not in use or has no finished uses
      */
     fun estimate(item: Item, settings: Settings, today: LocalDate = LocalDate.now()): Estimate? {
-        val average = averageDays(item)
-        val start = item.activeStart
-        val runOut = when {
-            average != null -> start?.plusDays(ceil(average).toLong()) ?: return null
-            else -> {
-                val frequency = frequency(item.subscription) ?: return null
-                start?.plusDays(ceil(frequency.days).toLong()) ?: nextDelivery(item, today) ?: return null
-            }
-        }
+        val start = item.activeStart ?: return null
+        val average = averageDays(item) ?: return null
+        val runOut = start.plusDays(ceil(average).toLong())
         val order = orderDateFor(runOut, settings.orderDay, settings.graceDays)
-        return Estimate(runOut, order, ChronoUnit.DAYS.between(today, order), rough = average == null)
+        return Estimate(runOut, order, ChronoUnit.DAYS.between(today, order))
     }
 
     /**

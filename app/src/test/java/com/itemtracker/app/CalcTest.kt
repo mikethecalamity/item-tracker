@@ -177,30 +177,14 @@ internal class CalcTest {
         }
 
         @Test
-        fun estimateTestRoughFromSubscriptionWhileInUse() {
-            val item = item().copy(subscription = "1 month", activeStart = LocalDate.of(2026, 10, 28))
-
-            assertThat(Calc.estimate(item, SETTINGS, TODAY)).isEqualTo(
-                Calc.Estimate(LocalDate.of(2026, 11, 28), LocalDate.of(2026, 12, 1), 28, rough = true),
+        fun estimateTestIgnoresSubscription() {
+            val item = item().copy(
+                subscription = "1 month",
+                activeStart = LocalDate.of(2026, 10, 28),
+                lastDelivery = LocalDate.of(2026, 10, 20),
             )
-        }
 
-        @Test
-        fun estimateTestRoughFromNextDelivery() {
-            val item = item().copy(subscription = "1 month", lastDelivery = LocalDate.of(2026, 10, 20))
-
-            assertThat(requireNotNull(Calc.estimate(item, SETTINGS, TODAY)))
-                .returns(LocalDate.of(2026, 11, 20), Calc.Estimate::runOut)
-                .returns(true, Calc.Estimate::rough)
-        }
-
-        @Test
-        fun estimateTestAverageWinsOverSubscription() {
-            val item = item(entry(28, 1)).copy(subscription = "3 months", activeStart = LocalDate.of(2026, 10, 28))
-
-            assertThat(requireNotNull(Calc.estimate(item, SETTINGS, TODAY)))
-                .returns(LocalDate.of(2026, 11, 25), Calc.Estimate::runOut)
-                .returns(false, Calc.Estimate::rough)
+            assertThat(Calc.estimate(item, SETTINGS, TODAY)).isNull()
         }
 
         @Test

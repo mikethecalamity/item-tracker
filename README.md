@@ -49,8 +49,9 @@ Run them with `./gradlew test` or right-click the `test` folder in Android Studi
 ### Subscriptions
 In **☰ → Edit**, set the item's subscription frequency and the date of a past delivery. The app rolls that date forward
 by the frequency to find the next delivery.
-- With no finished uses yet, the tile shows the subscription in *gray italics* as a rough estimate, and the order
-  badge uses it. It never counts toward the average. Once there's a real average, it shows in bold.
+- With no finished uses yet, the tile shows the subscription in *gray italics* for reference. It is never used for the
+  average, the run-out or order dates, or the order badge; those wait for real usage. Once there's an average, it
+  shows in bold.
 - With history, a red **⚠** (top-left) and red border appear when the subscription disagrees with the average:
   the frequency doesn't match it, the next delivery comes after you run out (beyond the grace days), or it comes more
   than one week or month (the subscription's unit) before you need it. Tap the ⚠ for details and a suggested frequency.
