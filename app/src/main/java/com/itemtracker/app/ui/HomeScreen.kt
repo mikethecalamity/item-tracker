@@ -21,10 +21,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -64,6 +62,7 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    var toStart by remember { mutableStateOf<Item?>(null) }
     var toStop by remember { mutableStateOf<Item?>(null) }
     var stopOnOtherDay by remember { mutableStateOf<Item?>(null) }
     var toDelete by remember { mutableStateOf<Item?>(null) }
@@ -130,15 +129,7 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
                                 toStop = item
                             }
                             else {
-                                viewModel.start(item.id)
-                                scope.launch {
-                                    val result = snackbar.showSnackbar(
-                                        "Started ${item.name} today",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Short,
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) viewModel.cancelCurrent(item.id)
-                                }
+                                toStart = item
                             }
                         },
                         onLongPress = { pickStartFor = item },
@@ -175,6 +166,25 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
             maxDate = LocalDate.now(),
             onDismiss = { stopOnOtherDay = null },
             onPick = { viewModel.stop(item.id, it); stopOnOtherDay = null },
+        )
+    }
+
+    toStart?.let { item ->
+        ConfirmDialog(
+            title = "Start ${item.name}?",
+            text = "Start using a new one today? This begins tracking how long it lasts.",
+            confirmLabel = "Start",
+            onDismiss = { toStart = null },
+            onConfirm = {
+                viewModel.start(item.id)
+                toStart = null
+            },
+            extraButton = {
+                TextButton(onClick = {
+                    pickStartFor = item
+                    toStart = null
+                }) { Text("Other day…") }
+            },
         )
     }
 

@@ -36,7 +36,7 @@ Run them with `./gradlew test` or right-click the `test` folder in Android Studi
 
 ## How it works
 
-- **Tap** an item that isn't in use to start it today (Undo appears briefly).
+- **Tap** an item that isn't in use to start it. You'll be asked to confirm; "Other day…" picks a past start date.
 - **Tap** an item that's in use to stop it. You'll be asked to confirm. "Other day…" lets you choose when it ran out.
 - **Long-press** an item to set a past start date, or to correct the current one.
 - **Green border** = in use. **Dark border** = not in use.
