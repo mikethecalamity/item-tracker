@@ -230,7 +230,7 @@ object Calc {
         estimate(item, settings, today)?.let { estimate -> estimate.daysUntilOrder <= settings.dueSoonDays } ?: false
 
     /**
-     * Sort items with due-soon items first (soonest first), then alphabetically
+     * Sort items by estimated run-out date, soonest first, then by name; items without an estimate come last by name
      *
      * @param items the items to sort
      * @param settings the [Settings] to use
@@ -238,12 +238,11 @@ object Calc {
      * @return the sorted items
      */
     fun sorted(items: List<Item>, settings: Settings, today: LocalDate = LocalDate.now()): List<Item> {
-        val (dueItems, otherItems) = items.partition { item -> isDueSoon(item, settings, today) }
-        val dueSorted = dueItems.sortedWith(
-            compareBy<Item> { item -> estimate(item, settings, today)?.daysUntilOrder ?: 0L }
+        val runOuts = items.associate { item -> item.id to estimate(item, settings, today)?.runOut }
+        return items.sortedWith(
+            compareBy<Item> { item -> runOuts[item.id] ?: LocalDate.MAX }
                 .thenBy(String.CASE_INSENSITIVE_ORDER, Item::name)
         )
-        return dueSorted + otherItems.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, Item::name))
     }
 
     /**

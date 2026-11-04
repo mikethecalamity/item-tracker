@@ -251,6 +251,17 @@ internal class CalcTest {
     }
 
     @Test
+    fun sortedTestTieUsesName() {
+        val start = LocalDate.of(2026, 10, 20)
+        val soap = item(entry(28, 1)).copy(name = "soap", activeStart = start)
+        val bread = item(entry(28, 1)).copy(name = "Bread", activeStart = start)
+        val later = item(entry(56, 1)).copy(name = "apples", activeStart = start)
+
+        assertThat(Calc.sorted(listOf(later, soap, bread), SETTINGS, TODAY).map(Item::name))
+            .containsExactly("Bread", "soap", "apples")
+    }
+
+    @Test
     fun shortDateTest() {
         assertThat(Calc.shortDate(LocalDate.of(2026, 10, 12), TODAY)).isEqualTo("Oct 12")
     }

@@ -44,7 +44,7 @@ Run them with `./gradlew test` or right-click the `test` folder in Android Studi
   Tap an entry to edit it, swipe left to delete it, or use **+ Add past use** to backfill.
 - **🗑 (bottom right)**: delete the item (asks first).
 - **+ (bottom middle)**: add an item. From the Amazon app, **Share → Subscription Tracker** fills in the link, name and picture.
-- **Order badge (top right)** appears when the order date is within your "due soon" window. Those items sort first, then everything is A→Z.
+- **Order badge (top right)** appears when the order date is within your "due soon" window. Items are sorted by estimated run-out date, soonest first (ties by name), then items without an estimate A→Z.
 
 ### Subscriptions
 In **☰ → Edit**, set the item's subscription frequency and the date of a past delivery. The app rolls that date forward
