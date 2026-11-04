@@ -3,5 +3,5 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
-    <color name="ic_launcher_background">#2E7D32</color>
+    <color name="ic_launcher_background">#F2FEF1</color>
 </resources>
