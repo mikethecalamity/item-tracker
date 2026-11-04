@@ -60,16 +60,20 @@ data class AppData(val items: List<Item> = emptyList()) {
  *
  * @property orderDay day of the month orders happen on, clamped to the last day of shorter months
  * @property graceDays how many days the user can go without an item before the next order day
- * @property dueSoonDays show the due badge when the order date is this many days away or less
+ * @property headsUpDays days ahead to show the order badge and send delivery alerts
+ * @property deliveryAlerts whether to notify about surplus and shortfall before a delivery
+ * @property runOutAlerts whether to ask about items still in use well past their estimated run-out
  * @property syncUri document URI of the sync file, or null when sync is off
  * @property themeMode whether the app follows the system, or is always light or dark
  */
 data class Settings(
     val orderDay: Int = 1,
     val graceDays: Int = 7,
-    val dueSoonDays: Int = 7,
+    val headsUpDays: Int = 7,
     val syncUri: String? = null,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val deliveryAlerts: Boolean = true,
+    val runOutAlerts: Boolean = true,
 )
 
 /** Light or dark appearance choice */

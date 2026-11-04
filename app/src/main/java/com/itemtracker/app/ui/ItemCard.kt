@@ -74,7 +74,7 @@ fun ItemCard(
     val borderWidth = if (warnings.isNotEmpty() || item.isActive) 4.dp else 2.dp
     val bitmap = remember(item.imageBase64) { item.imageBase64?.let { ImageUtil.toImageBitmap(it) } }
     val estimate = Calc.estimate(item, settings, today)
-    val dueSoon = estimate != null && estimate.daysUntilOrder <= settings.dueSoonDays
+    val dueSoon = estimate != null && estimate.daysUntilOrder <= settings.headsUpDays
 
     Box(
         modifier = Modifier

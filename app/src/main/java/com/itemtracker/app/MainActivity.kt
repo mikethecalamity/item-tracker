@@ -1,13 +1,17 @@
 package com.itemtracker.app
 
+import android.Manifest
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -18,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.itemtracker.app.ui.HistoryScreen
@@ -42,6 +47,7 @@ class MainActivity : ComponentActivity() {
             viewModel.handleIntent(intent)
             // Only a fresh open checks; returning to an app that is already open does not
             viewModel.checkForUpdateOnLaunch()
+            Reminders.schedule(this)
         }
         setContent {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -79,6 +85,17 @@ private fun AppRoot(viewModel: MainViewModel) {
     val pendingShare by viewModel.pendingShare.collectAsStateWithLifecycle()
 
     val launchUpdate by viewModel.launchUpdate.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    // Ask once for notification permission, since the daily summary is on by default
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !Reminders.canNotify(context) &&
+            SettingsStore.firstNotificationPermissionAsk(context)
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     LaunchedEffect(pendingShare) { if (pendingShare != null) screen = HOME }
     BackHandler(enabled = screen != HOME) { screen = HOME }

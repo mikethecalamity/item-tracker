@@ -168,6 +168,18 @@ object Calc {
     }
 
     /**
+     * Find the next order day on or after a date
+     *
+     * @param today the current date
+     * @param orderDay the day of the month orders happen on
+     * @return the next order day
+     */
+    fun nextOrderDay(today: LocalDate, orderDay: Int): LocalDate {
+        val thisMonth = orderDayIn(YearMonth.from(today), orderDay)
+        return if (thisMonth.isBefore(today)) orderDayIn(YearMonth.from(today).plusMonths(1), orderDay) else thisMonth
+    }
+
+    /**
      * Estimate the run-out and order dates of an item from its real average; the subscription is never used
      *
      * @param item the [Item] to use
@@ -227,7 +239,7 @@ object Calc {
      * @return true when the item should show the due badge
      */
     fun isDueSoon(item: Item, settings: Settings, today: LocalDate = LocalDate.now()): Boolean =
-        estimate(item, settings, today)?.let { estimate -> estimate.daysUntilOrder <= settings.dueSoonDays } ?: false
+        estimate(item, settings, today)?.let { estimate -> estimate.daysUntilOrder <= settings.headsUpDays } ?: false
 
     /**
      * Sort items by estimated run-out date, soonest first, then by name; items without an estimate come last by name

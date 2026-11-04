@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
 private val TODAY = LocalDate.of(2026, 11, 3)
-private val SETTINGS = Settings(orderDay = 1, graceDays = 7, dueSoonDays = 7)
+private val SETTINGS = Settings(orderDay = 1, graceDays = 7, headsUpDays = 7)
 
 /** Tests for [Calc] */
 internal class CalcTest {
@@ -236,6 +236,17 @@ internal class CalcTest {
 
             assertThat(Calc.warnings(item, SETTINGS, TODAY)).isEmpty()
         }
+    }
+
+    @ParameterizedTest(name = "{0}, day {1} -> {2}")
+    @CsvSource(
+        "2026-11-03, 8, 2026-11-08",
+        "2026-11-03, 3, 2026-11-03",
+        "2026-11-03, 1, 2026-12-01",
+        "2027-02-10, 31, 2027-02-28",
+    )
+    fun nextOrderDayTest(today: LocalDate, orderDay: Int, expected: LocalDate) {
+        assertThat(Calc.nextOrderDay(today, orderDay)).isEqualTo(expected)
     }
 
     @Test

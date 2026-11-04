@@ -56,6 +56,17 @@ by the frequency to find the next delivery.
   the frequency doesn't match it, the next delivery comes after you run out (beyond the grace days), or it comes more
   than one week or month (the subscription's unit) before you need it. Tap the ⚠ for details and a suggested frequency.
 
+### Notifications
+Once a day (about 9 AM) the app posts one summary, and only when something needs attention. It only covers items with
+finished uses. Each kind can be switched off in Settings.
+- **Delivery alerts:** when the next order day is within **Heads-up days**, it suggests skipping an item that would
+  arrive more than a week or month (its subscription unit) before you need it, or adding one that would run out (beyond
+  the grace days) before its own next delivery. This needs a subscription and last delivery date.
+- **"Did you run out?":** for items still in use a week past their estimated run-out.
+
+**Heads-up days** (formerly "Due soon") sets both the order badge and how early delivery alerts appear. Set it a bit
+earlier than Amazon's cutoff for changing a delivery.
+
 ### The numbers
 - Each use's length is stored in exact days and divided by the quantity it covered (per-unit days).
   The average is the per-unit mean × the item's current quantity, so changing the quantity rescales it.

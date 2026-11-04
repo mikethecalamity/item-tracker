@@ -32,22 +32,15 @@ import kotlinx.coroutines.withContext
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val TAG = "MainViewModel"
-        const val PREFERENCES = "settings"
-        const val ORDER_DAY = "orderDay"
-        const val GRACE_DAYS = "graceDays"
-        const val DUE_SOON_DAYS = "dueSoonDays"
-        const val SYNC_URI = "syncUri"
-        const val THEME_MODE = "themeMode"
         const val SYNC_DELAY_MILLIS = 1500L
         val SYNC_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
     }
 
-    private val preferences = application.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val syncMutex = Mutex()
     private var syncDelayJob: Job? = null
 
     private val mutableData = MutableStateFlow(Store.loadLocal(application))
-    private val mutableSettings = MutableStateFlow(loadSettings())
+    private val mutableSettings = MutableStateFlow(SettingsStore.load(application))
     private val mutableSyncStatus = MutableStateFlow<String?>(null)
     private val mutableMessage = MutableStateFlow<String?>(null)
     private val mutablePendingShare = MutableStateFlow<Amazon.Shared?>(null)
@@ -104,13 +97,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun updateSettings(newSettings: Settings) {
         mutableSettings.value = newSettings
-        preferences.edit()
-            .putInt(ORDER_DAY, newSettings.orderDay)
-            .putInt(GRACE_DAYS, newSettings.graceDays)
-            .putInt(DUE_SOON_DAYS, newSettings.dueSoonDays)
-            .putString(SYNC_URI, newSettings.syncUri)
-            .putString(THEME_MODE, newSettings.themeMode.name)
-            .apply()
+        SettingsStore.save(context, newSettings)
     }
 
     /**
@@ -483,15 +470,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             mutableMessage.value = "Update download failed"
         }
     }
-
-    private fun loadSettings() = Settings(
-        orderDay = preferences.getInt(ORDER_DAY, 1),
-        graceDays = preferences.getInt(GRACE_DAYS, 7),
-        dueSoonDays = preferences.getInt(DUE_SOON_DAYS, 7),
-        syncUri = preferences.getString(SYNC_URI, null),
-        themeMode = ThemeMode.entries.firstOrNull { mode -> mode.name == preferences.getString(THEME_MODE, null) }
-            ?: ThemeMode.SYSTEM,
-    )
 
     private fun linkSync(uri: Uri, status: String) {
         try {

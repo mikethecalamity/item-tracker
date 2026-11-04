@@ -295,7 +295,7 @@ private fun SummaryCard(item: Item, settings: com.itemtracker.app.Settings, onCa
                             estimate.daysUntilOrder == 0L -> " (today)"
                             else -> " (in ${estimate.daysUntilOrder} days)"
                         },
-                        highlight = estimate.daysUntilOrder <= settings.dueSoonDays,
+                        highlight = estimate.daysUntilOrder <= settings.headsUpDays,
                     )
                 }
                 else {

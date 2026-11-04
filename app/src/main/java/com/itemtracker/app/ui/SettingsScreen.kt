@@ -1,6 +1,10 @@
 package com.itemtracker.app.ui
 
+import android.Manifest
+import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +31,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,12 +44,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.itemtracker.app.BuildConfig
 import com.itemtracker.app.MainViewModel
+import com.itemtracker.app.Reminders
+import com.itemtracker.app.Settings
 import com.itemtracker.app.ThemeMode
 import com.itemtracker.app.Updater
 import java.time.LocalDate
@@ -68,6 +76,16 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
     var confirmRestore by remember { mutableStateOf(false) }
     var confirmUnlink by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    fun setAlerts(newSettings: Settings) {
+        viewModel.updateSettings(newSettings)
+        val wantsAlerts = newSettings.deliveryAlerts || newSettings.runOutAlerts
+        if (wantsAlerts && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !Reminders.canNotify(context)) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); viewModel.consumeMessage() } }
 
@@ -116,10 +134,11 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     value = settings.graceDays, range = 0..30,
                 ) { viewModel.updateSettings(settings.copy(graceDays = it)) }
                 NumberSetting(
-                    label = "\"Due soon\" badge",
-                    description = "Show the badge when the order date is this many days away or less.",
-                    value = settings.dueSoonDays, range = 0..60,
-                ) { viewModel.updateSettings(settings.copy(dueSoonDays = it)) }
+                    label = "Heads-up days",
+                    description = "Show the order badge, and send delivery alerts, this many days before the order " +
+                        "date. Set it a little earlier than Amazon's cutoff for changing a delivery.",
+                    value = settings.headsUpDays, range = 0..60,
+                ) { viewModel.updateSettings(settings.copy(headsUpDays = it)) }
             }
 
             Section("Appearance") {
@@ -136,6 +155,40 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.width(12.dp))
                         Text(mode.label, style = MaterialTheme.typography.bodyLarge)
                     }
+                }
+            }
+
+            Section("Notifications") {
+                Text(
+                    "One summary a day, around 9 AM, only when something needs attention. " +
+                        "Covers items with finished uses.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SwitchSetting(
+                    label = "Delivery alerts",
+                    description = "Before the order day: skip an item that would pile up, or add one that would " +
+                        "run out before its own next delivery. Needs a subscription and last delivery date.",
+                    checked = settings.deliveryAlerts,
+                ) { checked -> setAlerts(settings.copy(deliveryAlerts = checked)) }
+                SwitchSetting(
+                    label = "\"Did you run out?\"",
+                    description = "Asks about items still in use a week past their estimated run-out, " +
+                        "so the averages stay accurate.",
+                    checked = settings.runOutAlerts,
+                ) { checked -> setAlerts(settings.copy(runOutAlerts = checked)) }
+                if ((settings.deliveryAlerts || settings.runOutAlerts) && !Reminders.canNotify(context)) {
+                    Text(
+                        "Notifications are turned off for this app in Android settings.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    TextButton(onClick = {
+                        context.startActivity(
+                            Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(AndroidSettings.EXTRA_APP_PACKAGE, context.packageName),
+                        )
+                    }) { Text("Open notification settings") }
                 }
             }
 
@@ -260,6 +313,21 @@ private fun UpdateSection(
                 TextButton(onClick = onCheck) { Text("Try again") }
             }
         }
+    }
+}
+
+@Composable
+private fun SwitchSetting(label: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 
