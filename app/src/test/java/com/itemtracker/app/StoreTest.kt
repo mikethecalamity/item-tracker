@@ -1,9 +1,9 @@
 package com.itemtracker.app
 
+import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatExceptionOfType
 import org.junit.jupiter.api.Test
-import java.time.LocalDate
 
 private const val ITEM_ID = "item-1"
 private const val ENTRY_ID = "entry-1"
@@ -18,6 +18,8 @@ private val ITEM = Item(
     quantity = 2,
     activeStart = LocalDate.of(2026, 10, 1),
     history = listOf(ENTRY),
+    subscription = "2 months",
+    lastDelivery = LocalDate.of(2026, 9, 28),
     updatedAt = 100,
 )
 

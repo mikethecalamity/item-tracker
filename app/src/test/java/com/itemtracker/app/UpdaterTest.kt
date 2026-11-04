@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
-private const val APK_URL = "https://github.com/mikethecalamity/item-tracker/releases/download/v0.2.0/ItemTracker-0.2.0.apk"
+private const val APK_URL = "https://github.com/mikethecalamity/item-tracker/releases/download/v0.2.0/app.apk"
 
 /** Tests for [Updater] */
 internal class UpdaterTest {
@@ -16,7 +16,7 @@ internal class UpdaterTest {
         val json = """
             {"tag_name": "v0.2.0", "assets": [
                 {"name": "notes.txt", "browser_download_url": "https://example.com/notes.txt"},
-                {"name": "ItemTracker-0.2.0.apk", "browser_download_url": "$APK_URL"}
+                {"name": "app.apk", "browser_download_url": "$APK_URL"}
             ]}
         """
 

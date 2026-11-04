@@ -24,6 +24,8 @@ data class UsageEntry(
  *
  * @property imageBase64 small base64 JPEG picture, stored inline so it syncs with the data
  * @property activeStart the day the current use started, or null when the item is not in use
+ * @property subscription the subscription frequency label, such as "2 months", or null when not set
+ * @property lastDelivery the date of a past subscription delivery, rolled forward by the frequency when estimating
  * @property updatedAt last change time in epoch milliseconds, used when merging with the sync file
  * @property deleted whether the item was deleted; kept as a tombstone so deletes reach the sync file
  */
@@ -35,6 +37,8 @@ data class Item(
     val quantity: Int = 1,
     val activeStart: LocalDate? = null,
     val history: List<UsageEntry> = emptyList(),
+    val subscription: String? = null,
+    val lastDelivery: LocalDate? = null,
     val updatedAt: Long = System.currentTimeMillis(),
     val deleted: Boolean = false,
 ) {
@@ -58,10 +62,19 @@ data class AppData(val items: List<Item> = emptyList()) {
  * @property graceDays how many days the user can go without an item before the next order day
  * @property dueSoonDays show the due badge when the order date is this many days away or less
  * @property syncUri document URI of the sync file, or null when sync is off
+ * @property themeMode whether the app follows the system, or is always light or dark
  */
 data class Settings(
     val orderDay: Int = 1,
     val graceDays: Int = 7,
     val dueSoonDays: Int = 7,
     val syncUri: String? = null,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 )
+
+/** Light or dark appearance choice */
+enum class ThemeMode(val label: String) {
+    SYSTEM("System default"),
+    LIGHT("Light"),
+    DARK("Dark"),
+}

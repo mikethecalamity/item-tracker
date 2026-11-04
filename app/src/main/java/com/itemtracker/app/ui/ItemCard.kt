@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +50,7 @@ import java.time.LocalDate
  * @param onLongPress called when the tile is long-pressed
  * @param onHistory called when the history button is tapped
  * @param onDelete called when the delete button is tapped
+ * @param onWarning called with the warnings when the warning badge is tapped
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -58,11 +61,18 @@ fun ItemCard(
     onLongPress: () -> Unit,
     onHistory: () -> Unit,
     onDelete: () -> Unit,
+    onWarning: (List<String>) -> Unit,
 ) {
     val shape = RoundedCornerShape(18.dp)
-    val borderColor = if (item.isActive) InUseGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-    val bitmap = remember(item.imageBase64) { item.imageBase64?.let { ImageUtil.toImageBitmap(it) } }
     val today = LocalDate.now()
+    val warnings = Calc.warnings(item, settings, today)
+    val borderColor = when {
+        warnings.isNotEmpty() -> WarningRed
+        item.isActive -> InUseGreen
+        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+    }
+    val borderWidth = if (warnings.isNotEmpty() || item.isActive) 4.dp else 2.dp
+    val bitmap = remember(item.imageBase64) { item.imageBase64?.let { ImageUtil.toImageBitmap(it) } }
     val estimate = Calc.estimate(item, settings, today)
     val dueSoon = estimate != null && estimate.daysUntilOrder <= settings.dueSoonDays
 
@@ -71,7 +81,7 @@ fun ItemCard(
             .fillMaxWidth()
             .aspectRatio(0.78f)
             .clip(shape)
-            .border(if (item.isActive) 4.dp else 2.dp, borderColor, shape)
+            .border(borderWidth, borderColor, shape)
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .combinedClickable(onClick = onTap, onLongClick = onLongPress),
     ) {
@@ -103,12 +113,7 @@ fun ItemCard(
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Text(
-                Calc.averageLabel(item),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-            )
+            DurationLabel(item)
             Text(
                 item.activeStart?.let { "in use since " + Calc.shortDate(it, today) } ?: "not in use",
                 style = MaterialTheme.typography.labelSmall,
@@ -134,6 +139,15 @@ fun ItemCard(
             )
         }
 
+        if (warnings.isNotEmpty()) {
+            IconButton(
+                onClick = { onWarning(warnings) },
+                modifier = Modifier.align(Alignment.TopStart).padding(2.dp).size(36.dp),
+            ) {
+                Icon(Icons.Filled.Warning, contentDescription = "Subscription warning", tint = WarningRed)
+            }
+        }
+
         IconButton(
             onClick = onHistory,
             modifier = Modifier.align(Alignment.BottomStart).padding(2.dp).size(36.dp),
@@ -151,5 +165,28 @@ fun ItemCard(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** Show the real average in bold, or the subscription frequency in gray italics as a rough estimate */
+@Composable
+private fun DurationLabel(item: Item) {
+    val average = Calc.averageDays(item)
+    val subscription = Calc.frequency(item.subscription)
+    when {
+        average != null -> Text(
+            Calc.roundedLabel(average),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+        subscription != null -> Text(
+            subscription.label,
+            style = MaterialTheme.typography.titleMedium,
+            fontStyle = FontStyle.Italic,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            maxLines = 1,
+        )
+        else -> Text("—", style = MaterialTheme.typography.titleMedium, maxLines = 1)
     }
 }

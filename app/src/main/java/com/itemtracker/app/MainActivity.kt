@@ -1,12 +1,17 @@
 package com.itemtracker.app
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,6 +24,7 @@ import com.itemtracker.app.ui.HistoryScreen
 import com.itemtracker.app.ui.HomeScreen
 import com.itemtracker.app.ui.ItemTrackerTheme
 import com.itemtracker.app.ui.SettingsScreen
+import com.itemtracker.app.ui.isDark
 import kotlinx.coroutines.launch
 
 private const val HOME = "home"
@@ -32,9 +38,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) viewModel.handleIntent(intent)
+        if (savedInstanceState == null) {
+            viewModel.handleIntent(intent)
+            // Only a fresh open checks; returning to an app that is already open does not
+            viewModel.checkForUpdateOnLaunch()
+        }
         setContent {
-            ItemTrackerTheme { AppRoot(viewModel) }
+            val settings by viewModel.settings.collectAsStateWithLifecycle()
+            val dark = isDark(settings.themeMode)
+            // Match the status and navigation bar icons to the chosen theme, not just the system one
+            LaunchedEffect(dark) {
+                val barStyle = if (dark) SystemBarStyle.dark(Color.TRANSPARENT)
+                else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
+            }
+            ItemTrackerTheme(dark) { AppRoot(viewModel) }
         }
     }
 
@@ -60,6 +78,8 @@ private fun AppRoot(viewModel: MainViewModel) {
     var screen by rememberSaveable { mutableStateOf(HOME) }
     val pendingShare by viewModel.pendingShare.collectAsStateWithLifecycle()
 
+    val launchUpdate by viewModel.launchUpdate.collectAsStateWithLifecycle()
+
     LaunchedEffect(pendingShare) { if (pendingShare != null) screen = HOME }
     BackHandler(enabled = screen != HOME) { screen = HOME }
 
@@ -71,6 +91,23 @@ private fun AppRoot(viewModel: MainViewModel) {
             viewModel,
             onOpenHistory = { screen = HISTORY_PREFIX + it },
             onOpenSettings = { screen = SETTINGS },
+        )
+    }
+
+    launchUpdate?.let { release ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissLaunchUpdate,
+            title = { Text("Update available") },
+            text = {
+                Text("Version ${release.version} is available (you have ${BuildConfig.VERSION_NAME}). Update now?")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.dismissLaunchUpdate()
+                    viewModel.installUpdate(release)
+                }) { Text("Update now") }
+            },
+            dismissButton = { TextButton(onClick = viewModel::dismissLaunchUpdate) { Text("Later") } },
         )
     }
 }

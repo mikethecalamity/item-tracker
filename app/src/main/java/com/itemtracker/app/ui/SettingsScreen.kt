@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -37,14 +39,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.itemtracker.app.BuildConfig
 import com.itemtracker.app.MainViewModel
+import com.itemtracker.app.ThemeMode
 import com.itemtracker.app.Updater
-import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 /**
  * Show the ordering, sync and CSV settings
@@ -118,6 +122,23 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 ) { viewModel.updateSettings(settings.copy(dueSoonDays = it)) }
             }
 
+            Section("Appearance") {
+                ThemeMode.entries.forEach { mode ->
+                    Row(
+                        Modifier.fillMaxWidth().selectable(
+                            selected = settings.themeMode == mode,
+                            onClick = { viewModel.updateSettings(settings.copy(themeMode = mode)) },
+                            role = Role.RadioButton,
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = settings.themeMode == mode, onClick = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(mode.label, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+
             Section("Google Drive sync") {
                 Text(
                     "Keeps your data in a file in Google Drive. The Google Drive app must be installed; " +
@@ -161,7 +182,8 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Import CSV (replaces all data)") }
                 Text(
-                    "Columns: name, amazon_url, quantity, in_use_since, use_start, use_end, use_quantity. " +
+                    "Columns: name, amazon_url, quantity, in_use_since, subscription, last_delivery, " +
+                        "use_start, use_end, use_quantity. " +
                         "Dates as YYYY-MM-DD, one row per past use. Pictures aren't included in CSV; " +
                         "items with the same name keep their picture on import.",
                     style = MaterialTheme.typography.bodySmall,

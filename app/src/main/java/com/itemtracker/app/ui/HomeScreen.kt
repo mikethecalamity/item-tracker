@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
@@ -43,8 +44,8 @@ import com.itemtracker.app.Amazon
 import com.itemtracker.app.Calc
 import com.itemtracker.app.Item
 import com.itemtracker.app.MainViewModel
-import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 /**
  * Show the item grid and handle starting, stopping, dating and deleting items
@@ -69,6 +70,7 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
     var pickStartFor by remember { mutableStateOf<Item?>(null) }
     var addPrefill by remember { mutableStateOf<Amazon.Shared?>(null) }
     var showAdd by remember { mutableStateOf(false) }
+    var warningsFor by remember { mutableStateOf<Pair<Item, List<String>>?>(null) }
 
     LaunchedEffect(message) {
         message?.let { snackbar.showSnackbar(it); viewModel.consumeMessage() }
@@ -142,6 +144,7 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
                         onLongPress = { pickStartFor = item },
                         onHistory = { onOpenHistory(item.id) },
                         onDelete = { toDelete = item },
+                        onWarning = { warnings -> warningsFor = item to warnings },
                     )
                 }
             }
@@ -182,6 +185,27 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
             maxDate = LocalDate.now(),
             onDismiss = { pickStartFor = null },
             onPick = { viewModel.start(item.id, it); pickStartFor = null },
+        )
+    }
+
+    warningsFor?.let { (item, warnings) ->
+        val usage = Calc.averageDays(item)?.let(Calc::roundedLabel)
+        AlertDialog(
+            onDismissRequest = { warningsFor = null },
+            title = { Text("Check the ${item.name} subscription") },
+            text = {
+                Text(
+                    warnings.joinToString("\n\n") +
+                        (usage?.let { label -> "\n\nSuggested subscription: every $label." } ?: ""),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    warningsFor = null
+                    onOpenHistory(item.id)
+                }) { Text("Edit") }
+            },
+            dismissButton = { TextButton(onClick = { warningsFor = null }) { Text("Close") } },
         )
     }
 

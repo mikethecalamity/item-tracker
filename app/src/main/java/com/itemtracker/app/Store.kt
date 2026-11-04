@@ -2,13 +2,13 @@ package com.itemtracker.app
 
 import android.content.Context
 import android.net.Uri
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
 import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject
 
 /** Serialize, store, back up and merge the app data */
 object Store {
@@ -44,6 +44,8 @@ object Store {
                 put("imageBase64", item.imageBase64 ?: JSONObject.NULL)
                 put("quantity", item.quantity)
                 put("activeStart", item.activeStart?.toString() ?: JSONObject.NULL)
+                put("subscription", item.subscription ?: JSONObject.NULL)
+                put("lastDelivery", item.lastDelivery?.toString() ?: JSONObject.NULL)
                 put("updatedAt", item.updatedAt)
                 put("deleted", item.deleted)
                 put("history", historyJson)
@@ -203,6 +205,8 @@ object Store {
             imageBase64 = json.optStringOrNull("imageBase64"),
             quantity = json.optInt("quantity", 1),
             activeStart = json.optStringOrNull("activeStart")?.let(LocalDate::parse),
+            subscription = json.optStringOrNull("subscription"),
+            lastDelivery = json.optStringOrNull("lastDelivery")?.let(LocalDate::parse),
             history = history,
             updatedAt = json.optLong("updatedAt", 0L),
             deleted = json.optBoolean("deleted", false),

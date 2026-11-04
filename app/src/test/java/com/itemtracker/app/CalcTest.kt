@@ -1,11 +1,11 @@
 package com.itemtracker.app
 
+import java.time.LocalDate
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
-import java.time.LocalDate
 
 private val TODAY = LocalDate.of(2026, 11, 3)
 private val SETTINGS = Settings(orderDay = 1, graceDays = 7, dueSoonDays = 7)
@@ -136,6 +136,121 @@ internal class CalcTest {
         @Test
         fun isDueSoonTestNotInUse() {
             assertThat(Calc.isDueSoon(item(entry(28, 1)), SETTINGS, TODAY)).isFalse()
+        }
+    }
+
+    @Nested
+    inner class Subscriptions {
+        @Test
+        fun frequencyTest() {
+            assertThat(Calc.frequency("5 weeks")).isEqualTo(Calc.Frequency("5 weeks", 5, Calc.StepUnit.WEEK))
+        }
+
+        @Test
+        fun frequencyTestUnknown() {
+            assertThat(Calc.frequency("every day")).isNull()
+        }
+
+        @Test
+        fun frequencyTestMatchesRoundedLabels() {
+            assertThat(Calc.FREQUENCIES.map(Calc.Frequency::label))
+                .containsAll(listOf(7.0, 14.0, 21.0, 30.0, 35.0, 42.0, 49.0, 60.0, 365.0).map(Calc::roundedLabel))
+        }
+
+        @Test
+        fun nextDeliveryTestRollsForward() {
+            val item = item().copy(subscription = "1 month", lastDelivery = LocalDate.of(2026, 8, 15))
+
+            assertThat(Calc.nextDelivery(item, TODAY)).isEqualTo(LocalDate.of(2026, 11, 15))
+        }
+
+        @Test
+        fun nextDeliveryTestDeliveredToday() {
+            val item = item().copy(subscription = "2 weeks", lastDelivery = TODAY)
+
+            assertThat(Calc.nextDelivery(item, TODAY)).isEqualTo(TODAY.plusWeeks(2))
+        }
+
+        @Test
+        fun nextDeliveryTestNoLastDelivery() {
+            assertThat(Calc.nextDelivery(item().copy(subscription = "1 month"), TODAY)).isNull()
+        }
+
+        @Test
+        fun estimateTestRoughFromSubscriptionWhileInUse() {
+            val item = item().copy(subscription = "1 month", activeStart = LocalDate.of(2026, 10, 28))
+
+            assertThat(Calc.estimate(item, SETTINGS, TODAY)).isEqualTo(
+                Calc.Estimate(LocalDate.of(2026, 11, 28), LocalDate.of(2026, 12, 1), 28, rough = true),
+            )
+        }
+
+        @Test
+        fun estimateTestRoughFromNextDelivery() {
+            val item = item().copy(subscription = "1 month", lastDelivery = LocalDate.of(2026, 10, 20))
+
+            assertThat(requireNotNull(Calc.estimate(item, SETTINGS, TODAY)))
+                .returns(LocalDate.of(2026, 11, 20), Calc.Estimate::runOut)
+                .returns(true, Calc.Estimate::rough)
+        }
+
+        @Test
+        fun estimateTestAverageWinsOverSubscription() {
+            val item = item(entry(28, 1)).copy(subscription = "3 months", activeStart = LocalDate.of(2026, 10, 28))
+
+            assertThat(requireNotNull(Calc.estimate(item, SETTINGS, TODAY)))
+                .returns(LocalDate.of(2026, 11, 25), Calc.Estimate::runOut)
+                .returns(false, Calc.Estimate::rough)
+        }
+
+        @Test
+        fun warningsTestAllGood() {
+            val item = item(entry(28, 1)).copy(
+                subscription = "1 month",
+                activeStart = LocalDate.of(2026, 10, 28),
+                lastDelivery = LocalDate.of(2026, 10, 25),
+            )
+
+            assertThat(Calc.warnings(item, SETTINGS, TODAY)).isEmpty()
+        }
+
+        @Test
+        fun warningsTestFrequencyMismatch() {
+            val item = item(entry(28, 1)).copy(subscription = "2 months")
+
+            assertThat(Calc.warnings(item, SETTINGS, TODAY))
+                .containsExactly("Your subscription is every 2 months, but you use one every 1 month.")
+        }
+
+        @Test
+        fun warningsTestDeliveryTooLate() {
+            val item = item(entry(28, 1)).copy(
+                subscription = "1 month",
+                activeStart = LocalDate.of(2026, 10, 10),
+                lastDelivery = LocalDate.of(2026, 10, 25),
+            )
+
+            assertThat(Calc.warnings(item, SETTINGS, TODAY))
+                .containsExactly("The next delivery (Nov 25) comes after you run out (Nov 7).")
+        }
+
+        @Test
+        fun warningsTestDeliveryTooEarly() {
+            val item = item(entry(49, 1)).copy(
+                subscription = "7 weeks",
+                activeStart = LocalDate.of(2026, 11, 1),
+                lastDelivery = LocalDate.of(2026, 9, 20),
+            )
+
+            assertThat(Calc.warnings(item, SETTINGS, TODAY))
+                .containsExactly("The next delivery (Nov 8) comes more than a week before you need it (Dec 20).")
+        }
+
+        @Test
+        fun warningsTestNoHistory() {
+            val item = item().copy(subscription = "2 months", activeStart = TODAY, lastDelivery = TODAY)
+
+            assertThat(Calc.warnings(item, SETTINGS, TODAY)).isEmpty()
         }
     }
 

@@ -7,6 +7,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.io.IOException
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -19,10 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 
 /**
  * Hold the app state and apply every change, saving locally and syncing with the shared file
@@ -37,6 +37,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         const val GRACE_DAYS = "graceDays"
         const val DUE_SOON_DAYS = "dueSoonDays"
         const val SYNC_URI = "syncUri"
+        const val THEME_MODE = "themeMode"
         const val SYNC_DELAY_MILLIS = 1500L
         val SYNC_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
     }
@@ -51,6 +52,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableMessage = MutableStateFlow<String?>(null)
     private val mutablePendingShare = MutableStateFlow<Amazon.Shared?>(null)
     private val mutableUpdateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    private val mutableLaunchUpdate = MutableStateFlow<Updater.Release?>(null)
 
     /** All items, including deleted tombstones */
     val data: StateFlow<AppData> = mutableData.asStateFlow()
@@ -68,6 +70,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Progress of the in-app updater */
     val updateState: StateFlow<UpdateState> = mutableUpdateState.asStateFlow()
+
+    /** Newer release found when the app was opened, waiting for the update pop-up */
+    val launchUpdate: StateFlow<Updater.Release?> = mutableLaunchUpdate.asStateFlow()
 
     private val context: Context get() = getApplication()
 
@@ -104,6 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .putInt(GRACE_DAYS, newSettings.graceDays)
             .putInt(DUE_SOON_DAYS, newSettings.dueSoonDays)
             .putString(SYNC_URI, newSettings.syncUri)
+            .putString(THEME_MODE, newSettings.themeMode.name)
             .apply()
     }
 
@@ -141,21 +147,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Change the details of an item
+     * Change the details of an item; a blank name keeps the old name
      *
      * @param id the item id
-     * @param name the short name; blank keeps the old name
-     * @param amazonUrl the product link, or null
-     * @param quantity units per use
+     * @param details the new [ItemDetails]
      */
-    fun updateItem(id: String, name: String, amazonUrl: String?, quantity: Int) = mutateItem(id) { item ->
+    fun updateItem(id: String, details: ItemDetails) = mutateItem(id) { item ->
         item.copy(
-            name = name.trim().ifBlank { item.name },
-            amazonUrl = amazonUrl?.trim()?.ifBlank { null },
-            quantity = quantity.coerceAtLeast(1),
+            name = details.name.trim().ifBlank { item.name },
+            amazonUrl = details.amazonUrl?.trim()?.ifBlank { null },
+            quantity = details.quantity.coerceAtLeast(1),
+            subscription = details.subscription,
+            lastDelivery = details.lastDelivery,
             updatedAt = System.currentTimeMillis(),
         )
     }
+
+    /** Editable details of an item */
+    data class ItemDetails(
+        val name: String,
+        val amazonUrl: String?,
+        val quantity: Int,
+        val subscription: String?,
+        val lastDelivery: LocalDate?,
+    )
 
     /**
      * Set or remove the picture of an item
@@ -424,6 +439,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Quietly check for a newer release when the app is freshly opened; failures are ignored */
+    fun checkForUpdateOnLaunch() = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val release = Updater.latestRelease()
+            if (Updater.isNewer(release.version, BuildConfig.VERSION_NAME)) mutableLaunchUpdate.value = release
+        }
+        catch (e: IOException) {
+            Log.i(TAG, "Skipped the launch update check", e)
+        }
+        catch (e: IllegalStateException) {
+            Log.i(TAG, "Skipped the launch update check", e)
+        }
+    }
+
+    /** Close the launch update pop-up */
+    fun dismissLaunchUpdate() {
+        mutableLaunchUpdate.value = null
+    }
+
     /**
      * Download a release and open the Android installer, or the install permission setting when it is missing
      *
@@ -432,10 +466,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun installUpdate(release: Updater.Release) = viewModelScope.launch(Dispatchers.IO) {
         if (!Updater.canInstall(context)) {
             mutableUpdateState.value = UpdateState.NeedsPermission
+            mutableMessage.value = "Allow installing apps for Subscription Tracker, then try the update again"
             Updater.openInstallPermissionSettings(context)
             return@launch
         }
         mutableUpdateState.value = UpdateState.Downloading
+        mutableMessage.value = "Downloading ${release.version}…"
         try {
             val apk = Updater.download(context, release)
             mutableUpdateState.value = UpdateState.Available(release)
@@ -444,6 +480,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         catch (e: IOException) {
             Log.w(TAG, "Failed to download ${release.apkUrl}", e)
             mutableUpdateState.value = UpdateState.Failed("Download failed")
+            mutableMessage.value = "Update download failed"
         }
     }
 
@@ -452,6 +489,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         graceDays = preferences.getInt(GRACE_DAYS, 7),
         dueSoonDays = preferences.getInt(DUE_SOON_DAYS, 7),
         syncUri = preferences.getString(SYNC_URI, null),
+        themeMode = ThemeMode.entries.firstOrNull { mode -> mode.name == preferences.getString(THEME_MODE, null) }
+            ?: ThemeMode.SYSTEM,
     )
 
     private fun linkSync(uri: Uri, status: String) {

@@ -7,18 +7,21 @@ import java.time.format.DateTimeParseException
  * Export and import items as CSV
  *
  * One row per past use; items with no history get one row with blank use columns. Dates are YYYY-MM-DD. Images are
- * not included.
+ * not included. Files exported before the subscription columns existed still import.
  */
 object Csv {
     private const val NAME = "name"
     private const val AMAZON_URL = "amazon_url"
     private const val QUANTITY = "quantity"
     private const val IN_USE_SINCE = "in_use_since"
+    private const val SUBSCRIPTION = "subscription"
+    private const val LAST_DELIVERY = "last_delivery"
     private const val USE_START = "use_start"
     private const val USE_END = "use_end"
     private const val USE_QUANTITY = "use_quantity"
     private const val LINE_END = "\r\n"
-    private val HEADER = listOf(NAME, AMAZON_URL, QUANTITY, IN_USE_SINCE, USE_START, USE_END, USE_QUANTITY)
+    private val HEADER =
+        listOf(NAME, AMAZON_URL, QUANTITY, IN_USE_SINCE, SUBSCRIPTION, LAST_DELIVERY, USE_START, USE_END, USE_QUANTITY)
 
     /**
      * Export the items that are not deleted
@@ -31,6 +34,7 @@ object Csv {
         data.liveItems.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, Item::name)).forEach { item ->
             val itemCells = listOf(
                 item.name, item.amazonUrl.orEmpty(), item.quantity.toString(), item.activeStart?.toString().orEmpty(),
+                item.subscription.orEmpty(), item.lastDelivery?.toString().orEmpty(),
             )
             val entries = item.liveHistory.sortedBy(UsageEntry::start)
             if (entries.isEmpty()) {
@@ -129,6 +133,8 @@ object Csv {
                 imageBase64 = imagesByName[name.lowercase()],
                 quantity = first.cell(QUANTITY).toIntOrNull()?.coerceAtLeast(1) ?: 1,
                 activeStart = first.date(IN_USE_SINCE),
+                subscription = first.cell(SUBSCRIPTION).takeIf { label -> Calc.frequency(label) != null },
+                lastDelivery = first.date(LAST_DELIVERY),
                 history = itemRows.mapNotNull(CsvRow::toEntry),
             )
         }

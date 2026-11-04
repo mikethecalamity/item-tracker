@@ -20,14 +20,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -53,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,8 +66,8 @@ import com.itemtracker.app.Calc
 import com.itemtracker.app.Item
 import com.itemtracker.app.MainViewModel
 import com.itemtracker.app.UsageEntry
-import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 /**
  * Show the details, estimate and editable history of one item
@@ -209,8 +215,8 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
         }
     }
 
-    if (editDetails) EditDetailsDialog(item, onDismiss = { editDetails = false }) { name, link, quantity ->
-        viewModel.updateItem(item.id, name, link, quantity)
+    if (editDetails) EditDetailsDialog(item, onDismiss = { editDetails = false }) { details ->
+        viewModel.updateItem(item.id, details)
         editDetails = false
     }
 
@@ -277,10 +283,19 @@ private fun SummaryCard(item: Item, settings: com.itemtracker.app.Settings, onCa
                 )
             }
             LabeledValue("Quantity", item.quantity.toString())
+            SubscriptionRows(item, settings, today)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (item.activeStart != null) {
                 LabeledValue("In use since", Calc.longDate(item.activeStart))
                 if (estimate != null) {
+                    if (estimate.rough) {
+                        Text(
+                            "Rough estimate from the subscription until the first finished use",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     LabeledValue("Est. run-out", Calc.longDate(estimate.runOut))
                     LabeledValue(
                         "Est. order date",
@@ -308,6 +323,24 @@ private fun SummaryCard(item: Item, settings: com.itemtracker.app.Settings, onCa
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionRows(item: Item, settings: com.itemtracker.app.Settings, today: LocalDate) {
+    val subscription = Calc.frequency(item.subscription) ?: return
+    LabeledValue("Subscription", "every ${subscription.label}")
+    Calc.nextDelivery(item, today)?.let { next -> LabeledValue("Next delivery", Calc.longDate(next)) }
+    Calc.warnings(item, settings, today).forEach { warning ->
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(
+                Icons.Filled.Warning,
+                contentDescription = null,
+                tint = WarningRed,
+                modifier = Modifier.padding(end = 6.dp).width(18.dp).height(18.dp),
+            )
+            Text(warning, style = MaterialTheme.typography.bodySmall, color = WarningRed)
         }
     }
 }
@@ -371,15 +404,18 @@ private fun SwipeEntryRow(entry: UsageEntry, onClick: () -> Unit, onRequestDelet
 }
 
 @Composable
-private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (String, String?, Int) -> Unit) {
+private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainViewModel.ItemDetails) -> Unit) {
     var name by remember { mutableStateOf(item.name) }
     var link by remember { mutableStateOf(item.amazonUrl.orEmpty()) }
     var quantity by remember { mutableIntStateOf(item.quantity) }
+    var subscription by remember { mutableStateOf(item.subscription) }
+    var lastDelivery by remember { mutableStateOf(item.lastDelivery) }
+    var pickingDelivery by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit item") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     name,
                     { name = it },
@@ -402,15 +438,64 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (String
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                FrequencyPicker(subscription) { subscription = it }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Last delivery", Modifier.weight(1f))
+                    OutlinedButton(onClick = { pickingDelivery = true }) {
+                        Text(lastDelivery?.let(Calc::longDate) ?: "Set date")
+                    }
+                }
+                if (lastDelivery != null) {
+                    TextButton(onClick = { lastDelivery = null }) { Text("Clear last delivery") }
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(name, link.ifBlank { null }, quantity) }) {
-                Text("Save")
-            }
+            TextButton(
+                enabled = name.isNotBlank(),
+                onClick = {
+                    onSave(MainViewModel.ItemDetails(name, link.ifBlank { null }, quantity, subscription, lastDelivery))
+                },
+            ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+
+    if (pickingDelivery) {
+        DatePick(
+            title = "Last delivery",
+            initial = lastDelivery ?: LocalDate.now(),
+            onDismiss = { pickingDelivery = false },
+            onPick = { date ->
+                lastDelivery = date
+                pickingDelivery = false
+            },
+        )
+    }
+}
+
+/** Show the subscription frequency with a menu of every frequency, plus "None" */
+@Composable
+private fun FrequencyPicker(selected: String?, onSelect: (String?) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Subscription", Modifier.weight(1f))
+        Box {
+            OutlinedButton(onClick = { expanded = true }) { Text(selected?.let { label -> "Every $label" } ?: "None") }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(text = { Text("None") }, onClick = {
+                    onSelect(null)
+                    expanded = false
+                })
+                Calc.FREQUENCIES.forEach { frequency ->
+                    DropdownMenuItem(text = { Text("Every ${frequency.label}") }, onClick = {
+                        onSelect(frequency.label)
+                        expanded = false
+                    })
+                }
+            }
+        }
+    }
 }
 
 /** Date being picked in the entry dialog */

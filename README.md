@@ -13,7 +13,7 @@ The app version lives in `version.txt`. A push publishes a release (tagged `v<ve
 been released yet, so bump it for every release: patch for fixes, minor for features. Android's internal versionCode is
 derived from it (0.1.1 → 101). Builds are signed with `app/release.keystore`, so each new build installs over the previous one and keeps your data.
 
-After the first install, update from inside the app: **Settings → Check for updates → Update to x.y.z**.
+The app checks for a newer release each time it's freshly opened and offers to update. You can also update from: **Settings → Check for updates → Update to x.y.z**.
 The first time, Android asks you to allow Subscription Tracker to install apps. This needs the repository to stay public, since
 the app reads the latest release without signing in to GitHub.
 
@@ -46,6 +46,15 @@ Run them with `./gradlew test` or right-click the `test` folder in Android Studi
 - **+ (bottom middle)**: add an item. From the Amazon app, **Share → Subscription Tracker** fills in the link, name and picture.
 - **Order badge (top right)** appears when the order date is within your "due soon" window. Those items sort first, then everything is A→Z.
 
+### Subscriptions
+In **☰ → Edit**, set the item's subscription frequency and the date of a past delivery. The app rolls that date forward
+by the frequency to find the next delivery.
+- With no finished uses yet, the tile shows the subscription in *gray italics* as a rough estimate, and the order
+  badge uses it. It never counts toward the average. Once there's a real average, it shows in bold.
+- With history, a red **⚠** (top-left) and red border appear when the subscription disagrees with the average:
+  the frequency doesn't match it, the next delivery comes after you run out (beyond the grace days), or it comes more
+  than one week or month (the subscription's unit) before you need it. Tap the ⚠ for details and a suggested frequency.
+
 ### The numbers
 - Each use's length is stored in exact days and divided by the quantity it covered (per-unit days).
   The average is the per-unit mean × the item's current quantity, so changing the quantity rescales it.
@@ -62,7 +71,7 @@ For partner mode, both phones choose the same file ("Use an existing sync file")
 If your partner shared the file with you, add it to your My Drive (Drive → ⋮ → Organize → Add shortcut) so it shows up in the picker.
 
 ### CSV
-`name,amazon_url,quantity,in_use_since,use_start,use_end,use_quantity` with one row per past use and dates as `YYYY-MM-DD`.
+`name,amazon_url,quantity,in_use_since,subscription,last_delivery,use_start,use_end,use_quantity` with one row per past use and dates as `YYYY-MM-DD`.
 Import replaces everything, but a backup is saved first (Settings → *Restore data from before the last import*).
 
 ### Amazon

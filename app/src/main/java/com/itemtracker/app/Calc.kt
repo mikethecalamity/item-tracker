@@ -18,8 +18,63 @@ object Calc {
     private val SHORT_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.US)
     private val LONG_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
 
-    /** Estimated run-out and order dates for an item in use */
-    data class Estimate(val runOut: LocalDate, val orderDate: LocalDate, val daysUntilOrder: Long)
+    /** Unit a subscription frequency counts in */
+    enum class StepUnit(val singular: String) { WEEK("week"), MONTH("month") }
+
+    /**
+     * A subscription frequency, matching the rounded average labels
+     *
+     * @property label the label, such as "2 months"
+     * @property count how many units between deliveries
+     * @property unit the [StepUnit] counted
+     */
+    data class Frequency(val label: String, val count: Int, val unit: StepUnit) {
+        val days: Double get() = if (unit == StepUnit.WEEK) count * 7.0 else count * AVERAGE_MONTH_DAYS
+
+        /**
+         * Add this frequency to a date a number of times
+         *
+         * @param date the start date
+         * @param times how many deliveries to step forward
+         * @return the later date
+         */
+        fun addTo(date: LocalDate, times: Int = 1): LocalDate {
+            val steps = count.toLong() * times
+            return if (unit == StepUnit.WEEK) date.plusWeeks(steps) else date.plusMonths(steps)
+        }
+
+        /**
+         * Step one unit back from a date
+         *
+         * @param date the date
+         * @return one week or one month earlier
+         */
+        fun oneUnitBefore(date: LocalDate): LocalDate =
+            if (unit == StepUnit.WEEK) date.minusWeeks(1) else date.minusMonths(1)
+    }
+
+    /** The frequencies a subscription can be set to, in order */
+    val FREQUENCIES: List<Frequency> = listOf(
+        Frequency("1 week", 1, StepUnit.WEEK),
+        Frequency("2 weeks", 2, StepUnit.WEEK),
+        Frequency("3 weeks", 3, StepUnit.WEEK),
+        Frequency("1 month", 1, StepUnit.MONTH),
+        Frequency("5 weeks", 5, StepUnit.WEEK),
+        Frequency("6 weeks", 6, StepUnit.WEEK),
+        Frequency("7 weeks", 7, StepUnit.WEEK),
+    ) + (2..12).map { months -> Frequency("$months months", months, StepUnit.MONTH) }
+
+    /**
+     * Estimated run-out and order dates
+     *
+     * @property rough whether the estimate comes from the subscription setting instead of a real average
+     */
+    data class Estimate(
+        val runOut: LocalDate,
+        val orderDate: LocalDate,
+        val daysUntilOrder: Long,
+        val rough: Boolean = false,
+    )
 
     /**
      * Count the days between two dates, where a same-day start and stop counts as one day
@@ -99,19 +154,86 @@ object Calc {
     }
 
     /**
+     * Find a frequency by its label
+     *
+     * @param label the label, such as "2 months"
+     * @return the frequency, or null when the label is null or unknown
+     */
+    fun frequency(label: String?): Frequency? = FREQUENCIES.firstOrNull { frequency -> frequency.label == label }
+
+    /**
+     * Find the next subscription delivery, assuming every delivery since the last delivery date arrived on schedule
+     *
+     * @param item the [Item] to use
+     * @param today the current date
+     * @return the first scheduled delivery after today, or null without a subscription and last delivery date
+     */
+    fun nextDelivery(item: Item, today: LocalDate = LocalDate.now()): LocalDate? {
+        val frequency = frequency(item.subscription) ?: return null
+        val lastDelivery = item.lastDelivery ?: return null
+        var times = 1
+        while (!frequency.addTo(lastDelivery, times).isAfter(today)) times++
+        return frequency.addTo(lastDelivery, times)
+    }
+
+    /**
      * Estimate the run-out and order dates of an item
+     *
+     * With finished uses, the run-out is the in-use start plus the average. Without them, a subscription gives a
+     * rough estimate: the in-use start plus the frequency, or else the next scheduled delivery.
      *
      * @param item the [Item] to use
      * @param settings the [Settings] to use
      * @param today the current date
-     * @return the estimate, or null when the item is not in use or has no finished uses
+     * @return the estimate, or null when there is nothing to estimate from
      */
     fun estimate(item: Item, settings: Settings, today: LocalDate = LocalDate.now()): Estimate? {
-        val start = item.activeStart ?: return null
-        val average = averageDays(item) ?: return null
-        val runOut = start.plusDays(ceil(average).toLong())
+        val average = averageDays(item)
+        val start = item.activeStart
+        val runOut = when {
+            average != null -> start?.plusDays(ceil(average).toLong()) ?: return null
+            else -> {
+                val frequency = frequency(item.subscription) ?: return null
+                start?.plusDays(ceil(frequency.days).toLong()) ?: nextDelivery(item, today) ?: return null
+            }
+        }
         val order = orderDateFor(runOut, settings.orderDay, settings.graceDays)
-        return Estimate(runOut, order, ChronoUnit.DAYS.between(today, order))
+        return Estimate(runOut, order, ChronoUnit.DAYS.between(today, order), rough = average == null)
+    }
+
+    /**
+     * Explain where the subscription disagrees with the real average; only items with finished uses are checked
+     *
+     * Flags a frequency that differs from the rounded average, a next delivery that arrives after the item runs out
+     * (beyond the grace days), and one that arrives more than one week or month before it is needed.
+     *
+     * @param item the [Item] to use
+     * @param settings the [Settings] to use
+     * @param today the current date
+     * @return the warnings, empty when everything lines up
+     */
+    fun warnings(item: Item, settings: Settings, today: LocalDate = LocalDate.now()): List<String> {
+        val frequency = frequency(item.subscription) ?: return emptyList()
+        val average = averageDays(item) ?: return emptyList()
+        val usage = roundedLabel(average)
+        val frequencyWarning = if (usage == frequency.label) null
+        else "Your subscription is every ${frequency.label}, but you use one every $usage."
+        val start = item.activeStart
+        val next = nextDelivery(item, today)
+        val timingWarning = if (start == null || next == null) null
+        else {
+            val runOut = start.plusDays(ceil(average).toLong())
+            when {
+                next.isAfter(runOut.plusDays(settings.graceDays.toLong())) ->
+                    "The next delivery (${shortDate(next, today)}) comes after you run out " +
+                        "(${shortDate(runOut, today)})."
+                frequency.oneUnitBefore(runOut).isAfter(next) ->
+                    "The next delivery (${shortDate(next, today)}) comes more than a ${frequency.unit.singular} " +
+                        "before you need it (${shortDate(runOut, today)})."
+                else -> null
+            }
+        }
+        return listOfNotNull(frequencyWarning, timingWarning)
     }
 
     /**
