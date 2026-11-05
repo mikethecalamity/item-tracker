@@ -1,9 +1,11 @@
 package com.itemtracker.app
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,25 +13,23 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.WorkerParameters
-import java.time.Duration
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.util.concurrent.TimeUnit
+import java.time.ZoneId
 
-/** Schedule and post the daily summary notification */
+/**
+ * Schedule and post the daily summary notification
+ *
+ * Uses a plain inexact daily alarm rather than a background-job library, so the app needs no boot, wake-lock or
+ * foreground-service permissions. Alarms are cleared when the phone restarts and set again when the app is opened.
+ */
 object Reminders {
-    private const val WORK_NAME = "daily-summary"
     private const val CHANNEL_ID = "reminders"
     private const val NOTIFICATION_ID = 1
     private val CHECK_TIME: LocalTime = LocalTime.of(9, 0)
 
     /**
-     * Schedule the daily check at about 9 AM, keeping an existing schedule
+     * Schedule the daily check at about 9 AM, replacing any earlier schedule
      *
      * @param context the [Context] to use
      */
@@ -37,10 +37,15 @@ object Reminders {
         val now = LocalDateTime.now()
         val todayAtCheck = now.toLocalDate().atTime(CHECK_TIME)
         val nextCheck = if (now.isBefore(todayAtCheck)) todayAtCheck else todayAtCheck.plusDays(1)
-        val request = PeriodicWorkRequestBuilder<SummaryWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(Duration.between(now, nextCheck).toMinutes(), TimeUnit.MINUTES)
-            .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+        val firstMillis = nextCheck.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val trigger = PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(context, SummaryReceiver::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        context.getSystemService(AlarmManager::class.java)
+            .setInexactRepeating(AlarmManager.RTC, firstMillis, AlarmManager.INTERVAL_DAY, trigger)
     }
 
     /**
@@ -92,17 +97,11 @@ object Reminders {
         }
     }
 
-    /**
-     * Run the daily check in the background
-     *
-     * @param context the [Context] to use
-     * @param parameters the [WorkerParameters] to use
-     */
-    class SummaryWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
-        override suspend fun doWork(): Result {
-            val settings = SettingsStore.load(applicationContext)
-            post(applicationContext, Alerts.forToday(Store.loadLocal(applicationContext).items, settings))
-            return Result.success()
+    /** Run the daily check when the alarm fires */
+    class SummaryReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val settings = SettingsStore.load(context)
+            post(context, Alerts.forToday(Store.loadLocal(context).items, settings))
         }
     }
 }

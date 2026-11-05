@@ -57,7 +57,7 @@ by the frequency to find the next delivery.
   than one week or month (the subscription's unit) before you need it. Tap the ⚠ for details and a suggested frequency.
 
 ### Notifications
-Once a day (about 9 AM) the app posts one summary, and only when something needs attention. It only covers items with
+Once a day (about 9 AM, using a plain alarm so the app needs no start-at-boot or background-service permissions; after a restart it resumes when you open the app) the app posts one summary, and only when something needs attention. It only covers items with
 finished uses. Each kind can be switched off in Settings.
 - **Delivery alerts:** when the next order day is within **Heads-up days**, it suggests skipping an item that would
   arrive more than a week or month (its subscription unit) before you need it, or adding one that would run out (beyond

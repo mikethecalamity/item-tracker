@@ -43,6 +43,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Daily summary alarm; only this app can trigger it -->
+        <receiver
+            android:name=".Reminders$SummaryReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
