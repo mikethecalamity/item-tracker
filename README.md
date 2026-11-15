@@ -77,6 +77,12 @@ earlier than Amazon's cutoff for changing a delivery.
 - **This unit runs out** = start + per-unit average. **All units run out** = start + per-unit average × units left;
   the order date, badge, ⚠ timing check and delivery alerts use it.
 
+### Sizes
+Optional, in ☰ → Edit: the usual **size of one** unit and its unit (lb, oz, fl oz, item, or Other with your own name;
+defaults to item, which the main screen never shows). When one unit is a different size, such as a 5 lb tub of a
+usually 7.5 lb powder, enter its size when you start it (or when editing a history entry). Its use is scaled to the
+usual size, so it counts fairly toward the average, and its own run-out estimate is scaled to its smaller size.
+
 ### The numbers
 - Each use is one unit, stored in exact days. The per-order average is the per-unit mean × the order quantity,
   so changing the order quantity rescales it.
@@ -93,7 +99,7 @@ For partner mode, both phones choose the same file ("Use an existing sync file")
 If your partner shared the file with you, add it to your My Drive (Drive → ⋮ → Organize → Add shortcut) so it shows up in the picker.
 
 ### CSV
-`name,amazon_url,quantity,units_left,in_use_since,subscription,last_delivery,use_start,use_end` with one row per past use and dates as `YYYY-MM-DD`.
+`name,amazon_url,quantity,units_left,size,size_unit,in_use_since,subscription,last_delivery,use_start,use_end,use_size` with one row per past use and dates as `YYYY-MM-DD`.
 Import replaces everything, but a backup is saved first (Settings → *Restore data from before the last import*).
 
 ### Amazon

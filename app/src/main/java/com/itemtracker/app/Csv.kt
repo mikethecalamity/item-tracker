@@ -15,6 +15,9 @@ object Csv {
     private const val AMAZON_URL = "amazon_url"
     private const val QUANTITY = "quantity"
     private const val UNITS_LEFT = "units_left"
+    private const val SIZE = "size"
+    private const val SIZE_UNIT = "size_unit"
+    private const val USE_SIZE = "use_size"
     private const val IN_USE_SINCE = "in_use_since"
     private const val SUBSCRIPTION = "subscription"
     private const val LAST_DELIVERY = "last_delivery"
@@ -22,7 +25,10 @@ object Csv {
     private const val USE_END = "use_end"
     private const val LINE_END = "\r\n"
     private val HEADER =
-        listOf(NAME, AMAZON_URL, QUANTITY, UNITS_LEFT, IN_USE_SINCE, SUBSCRIPTION, LAST_DELIVERY, USE_START, USE_END)
+        listOf(
+            NAME, AMAZON_URL, QUANTITY, UNITS_LEFT, SIZE, SIZE_UNIT, IN_USE_SINCE, SUBSCRIPTION, LAST_DELIVERY,
+            USE_START, USE_END, USE_SIZE,
+        )
 
     /**
      * Export the items that are not deleted
@@ -35,15 +41,15 @@ object Csv {
         data.liveItems.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, Item::name)).forEach { item ->
             val itemCells = listOf(
                 item.name, item.amazonUrl.orEmpty(), item.quantity.toString(), item.unitsLeft.toString(),
-                item.activeStart?.toString().orEmpty(), item.subscription.orEmpty(),
-                item.lastDelivery?.toString().orEmpty(),
+                item.sizeAmount?.toString().orEmpty(), item.sizeUnit.orEmpty(), item.activeStart?.toString().orEmpty(),
+                item.subscription.orEmpty(), item.lastDelivery?.toString().orEmpty(),
             )
             val entries = item.liveHistory.sortedBy(UsageEntry::start)
             if (entries.isEmpty()) {
-                text.append(row(itemCells + listOf("", ""))).append(LINE_END)
+                text.append(row(itemCells + listOf("", "", ""))).append(LINE_END)
             }
             entries.forEach { entry ->
-                val entryCells = listOf(entry.start.toString(), entry.end.toString())
+                val entryCells = listOf(entry.start.toString(), entry.end.toString(), entry.size?.toString().orEmpty())
                 text.append(row(itemCells + entryCells)).append(LINE_END)
             }
         }
@@ -135,6 +141,8 @@ object Csv {
                 imageBase64 = imagesByName[name.lowercase()],
                 quantity = first.cell(QUANTITY).toIntOrNull()?.coerceAtLeast(1) ?: 1,
                 unitsLeft = first.cell(UNITS_LEFT).toIntOrNull()?.coerceAtLeast(0) ?: 1,
+                sizeAmount = first.cell(SIZE).toDoubleOrNull()?.takeIf { amount -> amount > 0 },
+                sizeUnit = first.cell(SIZE_UNIT).ifEmpty { null },
                 activeStart = first.date(IN_USE_SINCE),
                 subscription = first.cell(SUBSCRIPTION).takeIf { label -> Calc.frequency(label) != null },
                 lastDelivery = first.date(LAST_DELIVERY),
@@ -171,7 +179,7 @@ object Csv {
                 start == null || end == null ->
                     throw IllegalArgumentException("Row $line: needs both $USE_START and $USE_END")
                 end.isBefore(start) -> throw IllegalArgumentException("Row $line: $USE_END is before $USE_START")
-                else -> UsageEntry(start = start, end = end)
+                else -> UsageEntry(start = start, end = end, size = cell(USE_SIZE).toDoubleOrNull()?.takeIf { it > 0 })
             }
         }
     }

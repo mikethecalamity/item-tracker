@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -59,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.itemtracker.app.Calc
@@ -215,6 +217,7 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
             items(history, key = UsageEntry::id) { entry ->
                 SwipeEntryRow(
                     entry = entry,
+                    item = item,
                     onClick = { editEntry = entry },
                     onRequestDelete = { deleteEntry = entry },
                 )
@@ -231,9 +234,11 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
         title = "Add past use",
         initialStart = LocalDate.now().minusDays(28),
         initialEnd = LocalDate.now(),
+        item = item,
+        initialSize = null,
         onDismiss = { addEntry = false },
-    ) { start, end ->
-        viewModel.addEntry(item.id, start, end)
+    ) { start, end, size ->
+        viewModel.addEntry(item.id, start, end, size)
         addEntry = false
     }
 
@@ -242,9 +247,11 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
             title = "Edit use",
             initialStart = entry.start,
             initialEnd = entry.end,
+            item = item,
+            initialSize = entry.size,
             onDismiss = { editEntry = null },
-        ) { start, end ->
-            viewModel.updateEntry(item.id, entry.copy(start = start, end = end))
+        ) { start, end, size ->
+            viewModel.updateEntry(item.id, entry.copy(start = start, end = end, size = size))
             editEntry = null
         }
     }
@@ -300,7 +307,9 @@ private fun SummaryCard(
                 if (perOrder == null) "— (no finished uses yet)" else Calc.roundedLabel(perOrder),
             )
             if (perUnit != null) {
-                LabeledValue("Per unit", Calc.roundedLabel(perUnit))
+                val usualSize = item.sizeAmount?.let { amount -> " of " + Calc.sizeLabel(amount, item.sizeUnit) }
+                    .orEmpty()
+                LabeledValue("Per unit$usualSize", Calc.roundedLabel(perUnit))
                 Text(
                     "Exact: %.1f days per unit".format(perUnit) +
                         if (item.quantity > 1) ", %.1f per order".format(perUnit * item.quantity) else "",
@@ -316,7 +325,11 @@ private fun SummaryCard(
             SubscriptionRows(item, settings, today)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (item.activeStart != null) {
-                LabeledValue("In use since", Calc.longDate(item.activeStart))
+                LabeledValue(
+                    "In use since",
+                    Calc.longDate(item.activeStart) +
+                        (item.activeSize?.let { amount -> " (${Calc.sizeLabel(amount, item.sizeUnit)})" } ?: ""),
+                )
                 if (estimate != null) {
                     LabeledValue("This unit runs out", Calc.longDate(estimate.unitRunOut))
                     LabeledValue("All units run out", Calc.longDate(estimate.runOut))
@@ -386,7 +399,7 @@ private fun LabeledValue(label: String, value: String, highlight: Boolean = fals
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeEntryRow(entry: UsageEntry, onClick: () -> Unit, onRequestDelete: () -> Unit) {
+private fun SwipeEntryRow(entry: UsageEntry, item: Item, onClick: () -> Unit, onRequestDelete: () -> Unit) {
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) onRequestDelete()
@@ -419,7 +432,7 @@ private fun SwipeEntryRow(entry: UsageEntry, onClick: () -> Unit, onRequestDelet
             Column(Modifier.weight(1f)) {
                 Text("${Calc.longDate(entry.start)} → ${Calc.longDate(entry.end)}")
                 Text(
-                    "$days days",
+                    "$days days" + (entry.size?.let { amount -> " · " + Calc.sizeLabel(amount, item.sizeUnit) } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -436,6 +449,8 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainVi
     var link by remember { mutableStateOf(item.amazonUrl.orEmpty()) }
     var quantity by remember { mutableIntStateOf(item.quantity) }
     var unitsLeft by remember { mutableIntStateOf(item.unitsLeft) }
+    var sizeText by remember { mutableStateOf(amountText(item.sizeAmount)) }
+    var sizeUnit by remember { mutableStateOf(item.sizeUnit ?: Calc.ITEM_UNIT) }
     var subscription by remember { mutableStateOf(item.subscription) }
     var lastDelivery by remember { mutableStateOf(item.lastDelivery) }
     var pickingDelivery by remember { mutableStateOf(false) }
@@ -465,6 +480,12 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainVi
                     description = "On hand, including the one in use",
                     minimum = 0,
                 ) { unitsLeft = it }
+                SizePicker(
+                    amountText = sizeText,
+                    unit = sizeUnit,
+                    onAmountChange = { text -> sizeText = text },
+                    onUnitChange = { unit -> sizeUnit = unit },
+                )
                 FrequencyPicker(subscription) { subscription = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Last delivery", Modifier.weight(1f))
@@ -482,7 +503,13 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainVi
                 enabled = name.isNotBlank(),
                 onClick = {
                     val amazonUrl = link.ifBlank { null }
-                    onSave(MainViewModel.ItemDetails(name, amazonUrl, quantity, unitsLeft, subscription, lastDelivery))
+                    val sizeAmount = sizeText.toDoubleOrNull()?.takeIf { amount -> amount > 0 }
+                    val unit = sizeAmount?.let { sizeUnit.ifBlank { Calc.ITEM_UNIT } }
+                    onSave(
+                        MainViewModel.ItemDetails(
+                            name, amazonUrl, quantity, unitsLeft, sizeAmount, unit, subscription, lastDelivery,
+                        ),
+                    )
                 },
             ) { Text("Save") }
         },
@@ -498,6 +525,73 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainVi
                 lastDelivery = date
                 pickingDelivery = false
             },
+        )
+    }
+}
+
+/**
+ * Show the usual size of one unit: an amount and a unit picked from common units or typed in under "Other"
+ *
+ * @param amountText the amount as typed; blank means sizes are not tracked
+ * @param unit the unit
+ * @param onAmountChange called with the new amount text
+ * @param onUnitChange called with the new unit
+ */
+@Composable
+private fun SizePicker(
+    amountText: String,
+    unit: String,
+    onAmountChange: (String) -> Unit,
+    onUnitChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var otherSelected by remember { mutableStateOf(unit !in Calc.SIZE_UNITS) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = onAmountChange,
+                label = { Text("Size of one") },
+                placeholder = { Text("e.g. 7.5") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Box {
+                OutlinedButton(onClick = { expanded = true }) {
+                    Text(if (otherSelected) "Other" else unit)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    Calc.SIZE_UNITS.forEach { option ->
+                        DropdownMenuItem(text = { Text(option) }, onClick = {
+                            otherSelected = false
+                            onUnitChange(option)
+                            expanded = false
+                        })
+                    }
+                    DropdownMenuItem(text = { Text("Other…") }, onClick = {
+                        otherSelected = true
+                        onUnitChange(unit.takeIf { current -> current !in Calc.SIZE_UNITS }.orEmpty())
+                        expanded = false
+                    })
+                }
+            }
+        }
+        if (otherSelected) {
+            OutlinedTextField(
+                value = unit,
+                onValueChange = { text -> onUnitChange(text) },
+                label = { Text("Unit name") },
+                placeholder = { Text("e.g. pods, rolls, servings") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Text(
+            "Optional. Lets a different-size unit count fairly toward the average.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -526,6 +620,9 @@ private fun FrequencyPicker(selected: String?, onSelect: (String?) -> Unit) {
     }
 }
 
+/** Show an amount without a trailing ".0", or blank for no amount */
+private fun amountText(amount: Double?): String = amount?.let { value -> Calc.sizeLabel(value, null) }.orEmpty()
+
 /** Date being picked in the entry dialog */
 private enum class DateField { START, END }
 
@@ -534,13 +631,18 @@ private fun EntryDialog(
     title: String,
     initialStart: LocalDate,
     initialEnd: LocalDate,
+    item: Item,
+    initialSize: Double?,
     onDismiss: () -> Unit,
-    onSave: (LocalDate, LocalDate) -> Unit,
+    onSave: (LocalDate, LocalDate, Double?) -> Unit,
 ) {
     var start by remember { mutableStateOf(initialStart) }
     var end by remember { mutableStateOf(initialEnd) }
     var picking by remember { mutableStateOf<DateField?>(null) }
-    val valid = !end.isBefore(start)
+    val usual = item.sizeAmount
+    var sizeText by remember { mutableStateOf(amountText(initialSize ?: usual)) }
+    val size = sizeText.toDoubleOrNull()?.takeIf { amount -> amount > 0 }
+    val valid = !end.isBefore(start) && (usual == null || size != null)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -555,16 +657,33 @@ private fun EntryDialog(
                     Text("Ran out", Modifier.weight(1f))
                     OutlinedButton(onClick = { picking = DateField.END }) { Text(Calc.longDate(end)) }
                 }
+                if (usual != null) {
+                    OutlinedTextField(
+                        value = sizeText,
+                        onValueChange = { text -> sizeText = text },
+                        label = { Text("Size (${item.sizeUnit.orEmpty()})") },
+                        supportingText = { Text("Usually ${Calc.sizeLabel(usual, item.sizeUnit)}") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 val days = Calc.daysBetween(start, end)
+                val datesValid = !end.isBefore(start)
                 Text(
-                    if (valid) "$days days → ${Calc.roundedLabel(days.toDouble())}"
+                    if (datesValid) "$days days → ${Calc.roundedLabel(days.toDouble())}"
                     else "End date is before the start date.",
-                    color = if (valid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    color = if (datesValid) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
         },
-        confirmButton = { TextButton(enabled = valid, onClick = { onSave(start, end) }) { Text("Save") } },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { onSave(start, end, size?.takeIf { amount -> amount != usual }) }) {
+                Text("Save")
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 

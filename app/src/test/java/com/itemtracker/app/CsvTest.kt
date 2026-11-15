@@ -5,8 +5,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatExceptionOfType
 import org.junit.jupiter.api.Test
 
-private const val HEADER =
-    "name,amazon_url,quantity,units_left,in_use_since,subscription,last_delivery,use_start,use_end"
+private const val HEADER = "name,amazon_url,quantity,units_left,size,size_unit,in_use_since,subscription," +
+    "last_delivery,use_start,use_end,use_size"
 private const val SUBSCRIPTION_HEADER =
     "name,amazon_url,quantity,in_use_since,subscription,last_delivery,use_start,use_end,use_quantity"
 private const val OLD_HEADER = "name,amazon_url,quantity,in_use_since,use_start,use_end,use_quantity"
@@ -27,15 +27,17 @@ internal class CsvTest {
             amazonUrl = URL,
             quantity = 2,
             unitsLeft = 3,
+            sizeAmount = 7.5,
+            sizeUnit = "lb",
             activeStart = IN_USE_SINCE,
-            history = listOf(UsageEntry(start = START, end = END)),
+            history = listOf(UsageEntry(start = START, end = END, size = 5.0)),
             subscription = "2 months",
             lastDelivery = LAST_DELIVERY,
         )
         val deleted = Item(name = "Gone", deleted = true)
 
         assertThat(Csv.export(AppData(listOf(pods, deleted)))).isEqualTo(
-            "$HEADER\r\nCoffee pods,$URL,2,3,2026-10-01,2 months,2026-09-28,2026-09-01,2026-09-29\r\n",
+            "$HEADER\r\nCoffee pods,$URL,2,3,7.5,lb,2026-10-01,2 months,2026-09-28,2026-09-01,2026-09-29,5.0\r\n",
         )
     }
 
@@ -43,7 +45,8 @@ internal class CsvTest {
     fun exportTestNoHistoryAndEscaping() {
         val item = Item(name = "Soap, \"big\" pack")
 
-        assertThat(Csv.export(AppData(listOf(item)))).isEqualTo("$HEADER\r\n\"Soap, \"\"big\"\" pack\",,1,1,,,,,\r\n")
+        assertThat(Csv.export(AppData(listOf(item))))
+            .isEqualTo("$HEADER\r\n\"Soap, \"\"big\"\" pack\",,1,1,,,,,,,,\r\n")
     }
 
     @Test
@@ -66,8 +69,9 @@ internal class CsvTest {
     @Test
     fun importItemsTest() {
         val existing = listOf(Item(name = "coffee pods", imageBase64 = IMAGE))
-        val csv = "$HEADER\nCoffee pods,$URL,2,3,2026-10-01,2 months,2026-09-28,2026-09-01,2026-09-29\n" +
-            "Coffee pods,$URL,2,3,2026-10-01,2 months,2026-09-28,2026-08-01,2026-08-31\nSoap,,,,,every day,,,\n"
+        val csv = "$HEADER\nCoffee pods,$URL,2,3,7.5,lb,2026-10-01,2 months,2026-09-28,2026-09-01,2026-09-29,5\n" +
+            "Coffee pods,$URL,2,3,7.5,lb,2026-10-01,2 months,2026-09-28,2026-08-01,2026-08-31,\n" +
+            "Soap,,,,,,,every day,,,,\n"
 
         val items = Csv.importItems(csv, existing)
 
@@ -77,16 +81,20 @@ internal class CsvTest {
             .returns(IMAGE, Item::imageBase64)
             .returns(2, Item::quantity)
             .returns(3, Item::unitsLeft)
+            .returns(7.5, Item::sizeAmount)
+            .returns("lb", Item::sizeUnit)
             .returns(IN_USE_SINCE, Item::activeStart)
             .returns("2 months", Item::subscription)
             .returns(LAST_DELIVERY, Item::lastDelivery)
         val history = items.first().history.map { entry -> entry.start to entry.end }
         assertThat(history).containsExactly(START to END, LocalDate.of(2026, 8, 1) to LocalDate.of(2026, 8, 31))
+        assertThat(items.first().history.map(UsageEntry::size)).containsExactly(5.0, null)
         assertThat(items.last())
             .returns(null, Item::amazonUrl)
             .returns(null, Item::imageBase64)
             .returns(1, Item::quantity)
             .returns(1, Item::unitsLeft)
+            .returns(null, Item::sizeAmount)
             .returns(null, Item::subscription)
             .returns(emptyList<UsageEntry>(), Item::history)
     }
@@ -132,21 +140,21 @@ internal class CsvTest {
     @Test
     fun importItemsTestBadDate() {
         assertThatExceptionOfType(IllegalArgumentException::class.java)
-            .isThrownBy { Csv.importItems("$HEADER\nSoap,,1,1,,,,9/1/2026,2026-09-29\n", emptyList()) }
+            .isThrownBy { Csv.importItems("$HEADER\nSoap,,1,1,,,,,,9/1/2026,2026-09-29,\n", emptyList()) }
             .withMessage("Row 2: \"9/1/2026\" in use_start is not a date like 2026-01-31")
     }
 
     @Test
     fun importItemsTestMissingEndDate() {
         assertThatExceptionOfType(IllegalArgumentException::class.java)
-            .isThrownBy { Csv.importItems("$HEADER\nSoap,,1,1,,,,2026-09-01,\n", emptyList()) }
+            .isThrownBy { Csv.importItems("$HEADER\nSoap,,1,1,,,,,,2026-09-01,,\n", emptyList()) }
             .withMessage("Row 2: needs both use_start and use_end")
     }
 
     @Test
     fun importItemsTestEndBeforeStart() {
         assertThatExceptionOfType(IllegalArgumentException::class.java)
-            .isThrownBy { Csv.importItems("$HEADER\nSoap,,1,1,,,,2026-09-29,2026-09-01\n", emptyList()) }
+            .isThrownBy { Csv.importItems("$HEADER\nSoap,,1,1,,,,,,2026-09-29,2026-09-01,\n", emptyList()) }
             .withMessage("Row 2: use_end is before use_start")
     }
 }

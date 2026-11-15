@@ -78,6 +78,46 @@ object Calc {
         val daysUntilOrder: Long,
     )
 
+    /** The default size unit, a plain count; the main screen never shows it */
+    const val ITEM_UNIT = "item"
+
+    /** Units offered in the size picker; anything else is a custom unit */
+    val SIZE_UNITS: List<String> = listOf("lb", "oz", "fl oz", ITEM_UNIT)
+
+    /**
+     * Format an amount and unit, such as "7.5 lb" or "5 lb"
+     *
+     * @param amount the amount
+     * @param unit the unit, or null
+     * @return the label
+     */
+    fun sizeLabel(amount: Double, unit: String?): String {
+        val number = if (amount % 1.0 == 0.0) amount.toLong().toString() else amount.toString()
+        val shownUnit = if (unit == ITEM_UNIT && amount != 1.0) "items" else unit
+        return listOfNotNull(number, shownUnit?.takeIf(String::isNotBlank)).joinToString(" ")
+    }
+
+    /**
+     * Round days up to whole days, ignoring floating-point noise such as 20.000000000000004
+     *
+     * @param days the days
+     * @return the whole days
+     */
+    fun wholeDays(days: Double): Long = ceil(days - 1e-9).toLong()
+
+    /**
+     * Get how a unit of a given amount compares to the item's usual size
+     *
+     * @param item the [Item] to use
+     * @param amount the amount of the unit, or null for the usual size
+     * @return the ratio, such as 0.67 for a 5 lb tub of a 7.5 lb item; 1 when sizes are not tracked
+     */
+    fun sizeFactor(item: Item, amount: Double?): Double {
+        val usual = item.sizeAmount ?: return 1.0
+        if (amount == null || amount <= 0 || usual <= 0) return 1.0
+        return amount / usual
+    }
+
     /**
      * Count the days between two dates, where a same-day start and stop counts as one day
      *
@@ -96,7 +136,8 @@ object Calc {
     fun averageDaysPerUnit(item: Item): Double? {
         val entries = item.liveHistory
         if (entries.isEmpty()) return null
-        return entries.map { entry -> daysBetween(entry.start, entry.end).toDouble() }.average()
+        // A smaller unit lasts proportionally less, so scale each use to the usual size
+        return entries.map { entry -> daysBetween(entry.start, entry.end) / sizeFactor(item, entry.size) }.average()
     }
 
     /**
@@ -114,7 +155,7 @@ object Calc {
      * @return the label, such as "3 weeks" or "2 months"
      */
     fun roundedLabel(days: Double): String {
-        val wholeDays = ceil(days)
+        val wholeDays = wholeDays(days).toDouble()
         return when {
             wholeDays <= 7 -> "1 week"
             wholeDays <= 14 -> "2 weeks"
@@ -200,9 +241,10 @@ object Calc {
     fun estimate(item: Item, settings: Settings, today: LocalDate = LocalDate.now()): Estimate? {
         val start = item.activeStart ?: return null
         val perUnit = averageDaysPerUnit(item) ?: return null
-        val unitRunOut = start.plusDays(ceil(perUnit).toLong())
-        // Units left includes the one in use; never count fewer than that one
-        val runOut = start.plusDays(ceil(perUnit * max(1, item.unitsLeft)).toLong())
+        val currentUnitDays = perUnit * sizeFactor(item, item.activeSize)
+        val unitRunOut = start.plusDays(wholeDays(currentUnitDays))
+        // Units left includes the one in use; the others are assumed to be the usual size
+        val runOut = start.plusDays(wholeDays(currentUnitDays + perUnit * (max(1, item.unitsLeft) - 1)))
         val order = orderDateFor(runOut, settings.orderDay, settings.graceDays)
         return Estimate(unitRunOut, runOut, order, ChronoUnit.DAYS.between(today, order))
     }

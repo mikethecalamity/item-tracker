@@ -6,6 +6,7 @@ import java.util.UUID
 /**
  * Record one finished use of a single unit, from the day it was started to the day it ran out
  *
+ * @property size the amount of this unit when it differed from the item size, such as 5 for a 5 lb tub
  * @property updatedAt last change time in epoch milliseconds, used when merging with the sync file
  * @property deleted whether the entry was deleted; kept as a tombstone so deletes reach the sync file
  */
@@ -13,6 +14,7 @@ data class UsageEntry(
     val id: String = UUID.randomUUID().toString(),
     val start: LocalDate,
     val end: LocalDate,
+    val size: Double? = null,
     val updatedAt: Long = System.currentTimeMillis(),
     val deleted: Boolean = false,
 )
@@ -22,6 +24,9 @@ data class UsageEntry(
  *
  * @property quantity units per order, such as 3 for a 3-pack
  * @property unitsLeft units on hand, including the one in use
+ * @property sizeAmount the usual amount of one unit, such as 7.5, or null when sizes are not tracked
+ * @property sizeUnit what [sizeAmount] counts, such as "lb", "oz", "fl oz", "item" or a custom unit
+ * @property activeSize the amount of the unit in use when it differs from [sizeAmount]
  * @property imageBase64 small base64 JPEG picture, stored inline so it syncs with the data
  * @property activeStart the day the current use started, or null when the item is not in use
  * @property subscription the subscription frequency label, such as "2 months", or null when not set
@@ -36,6 +41,9 @@ data class Item(
     val imageBase64: String? = null,
     val quantity: Int = 1,
     val unitsLeft: Int = 1,
+    val sizeAmount: Double? = null,
+    val sizeUnit: String? = null,
+    val activeSize: Double? = null,
     val activeStart: LocalDate? = null,
     val history: List<UsageEntry> = emptyList(),
     val subscription: String? = null,

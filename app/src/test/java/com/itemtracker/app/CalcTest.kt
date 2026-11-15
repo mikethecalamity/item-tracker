@@ -55,6 +55,21 @@ internal class CalcTest {
         }
 
         @Test
+        fun averageDaysPerUnitTestScalesOffSizeUnits() {
+            val smallTub = UsageEntry(start = TODAY.minusDays(128), end = TODAY.minusDays(100), size = 5.0)
+            val item = item(entry(42)).copy(sizeAmount = 7.5, sizeUnit = "lb", history = listOf(entry(42), smallTub))
+
+            assertThat(Calc.averageDaysPerUnit(item)).isEqualTo(42.0)
+        }
+
+        @Test
+        fun averageDaysPerUnitTestIgnoresSizeWithoutUsualSize() {
+            val item = item(UsageEntry(start = TODAY.minusDays(128), end = TODAY.minusDays(100), size = 5.0))
+
+            assertThat(Calc.averageDaysPerUnit(item)).isEqualTo(28.0)
+        }
+
+        @Test
         fun averageDaysTestNoHistory() {
             assertThat(Calc.averageDays(item())).isNull()
         }
@@ -116,6 +131,20 @@ internal class CalcTest {
             assertThat(Calc.estimate(item, SETTINGS, TODAY)).isEqualTo(
                 Calc.Estimate(LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 27), LocalDate.of(2026, 12, 1), 28),
             )
+        }
+
+        @Test
+        fun estimateTestSmallerUnitInUse() {
+            val item = item(entry(30)).copy(
+                sizeAmount = 7.5,
+                activeSize = 5.0,
+                unitsLeft = 2,
+                activeStart = LocalDate.of(2026, 10, 28),
+            )
+
+            assertThat(requireNotNull(Calc.estimate(item, SETTINGS, TODAY)))
+                .returns(LocalDate.of(2026, 11, 17), Calc.Estimate::unitRunOut)
+                .returns(LocalDate.of(2026, 12, 17), Calc.Estimate::runOut)
         }
 
         @Test
@@ -286,6 +315,19 @@ internal class CalcTest {
 
         assertThat(Calc.sorted(listOf(later, soap, bread), SETTINGS, TODAY).map(Item::name))
             .containsExactly("Bread", "soap", "apples")
+    }
+
+    @ParameterizedTest(name = "{0} {1} -> {2}")
+    @CsvSource(
+        "7.5, lb, 7.5 lb",
+        "5.0, lb, 5 lb",
+        "12, fl oz, 12 fl oz",
+        "3, '', 3",
+        "3, item, 3 items",
+        "1, item, 1 item",
+    )
+    fun sizeLabelTest(amount: Double, unit: String?, expected: String) {
+        assertThat(Calc.sizeLabel(amount, unit)).isEqualTo(expected)
     }
 
     @Test

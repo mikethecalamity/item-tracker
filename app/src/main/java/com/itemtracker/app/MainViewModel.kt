@@ -146,6 +146,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             amazonUrl = details.amazonUrl?.trim()?.ifBlank { null },
             quantity = details.quantity.coerceAtLeast(1),
             unitsLeft = details.unitsLeft.coerceAtLeast(0),
+            sizeAmount = details.sizeAmount?.takeIf { amount -> amount > 0 },
+            sizeUnit = details.sizeUnit?.trim()?.ifBlank { null },
             subscription = details.subscription,
             lastDelivery = details.lastDelivery,
             updatedAt = System.currentTimeMillis(),
@@ -158,6 +160,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val amazonUrl: String?,
         val quantity: Int,
         val unitsLeft: Int,
+        val sizeAmount: Double?,
+        val sizeUnit: String?,
         val subscription: String?,
         val lastDelivery: LocalDate?,
     )
@@ -186,11 +190,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      *
      * @param id the item id
      * @param date the start date
+     * @param size the amount of this unit, or null for the usual size
      */
-    fun start(id: String, date: LocalDate = LocalDate.now()) = mutateItem(id) { item ->
+    fun start(id: String, date: LocalDate = LocalDate.now(), size: Double? = null) = mutateItem(id) { item ->
         // Starting with none left means a new order arrived
         item.copy(
             activeStart = date,
+            // Changing the start date of the unit in use keeps its size unless a new one is given
+            activeSize = if (size == null && item.isActive) item.activeSize
+            else size?.takeIf { amount -> amount > 0 && amount != item.sizeAmount },
             unitsLeft = if (item.unitsLeft <= 0) item.quantity else item.unitsLeft,
             updatedAt = System.currentTimeMillis(),
         )
@@ -202,7 +210,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * @param id the item id
      */
     fun cancelCurrent(id: String) = mutateItem(id) { item ->
-        item.copy(activeStart = null, updatedAt = System.currentTimeMillis())
+        item.copy(activeStart = null, activeSize = null, updatedAt = System.currentTimeMillis())
     }
 
     /**
@@ -216,7 +224,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val end = if (endDate.isBefore(start)) start else endDate
         item.copy(
             activeStart = null,
-            history = item.history + UsageEntry(start = start, end = end),
+            history = item.history + UsageEntry(start = start, end = end, size = item.activeSize),
+            activeSize = null,
             unitsLeft = (item.unitsLeft - 1).coerceAtLeast(0),
             updatedAt = System.currentTimeMillis(),
         )
@@ -228,9 +237,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * @param id the item id
      * @param start the start date
      * @param end the run-out date
+     * @param size the amount of that unit, or null for the usual size
      */
-    fun addEntry(id: String, start: LocalDate, end: LocalDate) = mutateItem(id) { item ->
-        item.copy(history = item.history + UsageEntry(start = start, end = end))
+    fun addEntry(id: String, start: LocalDate, end: LocalDate, size: Double?) = mutateItem(id) { item ->
+        item.copy(history = item.history + UsageEntry(start = start, end = end, size = size))
     }
 
     /**

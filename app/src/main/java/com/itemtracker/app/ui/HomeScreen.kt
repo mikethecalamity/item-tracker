@@ -2,14 +2,18 @@ package com.itemtracker.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
@@ -20,6 +24,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -35,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,6 +69,7 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
     val scope = rememberCoroutineScope()
 
     var toStart by remember { mutableStateOf<Item?>(null) }
+    var pendingStartSize by remember { mutableStateOf<Double?>(null) }
     var toStop by remember { mutableStateOf<Item?>(null) }
     var stopOnOtherDay by remember { mutableStateOf<Item?>(null) }
     var toDelete by remember { mutableStateOf<Item?>(null) }
@@ -170,26 +177,17 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
     }
 
     toStart?.let { item ->
-        ConfirmDialog(
-            title = "Start ${item.name}?",
-            text = "Start using a new one today? This begins tracking how long it lasts." +
-                if (item.unitsLeft <= 0 && !item.isActive) {
-                    "\n\nYou had none left, so this counts a new order of ${item.quantity}."
-                }
-                else {
-                    ""
-                },
-            confirmLabel = "Start",
+        StartDialog(
+            item = item,
             onDismiss = { toStart = null },
-            onConfirm = {
-                viewModel.start(item.id)
+            onStart = { size ->
+                viewModel.start(item.id, size = size)
                 toStart = null
             },
-            extraButton = {
-                TextButton(onClick = {
-                    pickStartFor = item
-                    toStart = null
-                }) { Text("Other day…") }
+            onOtherDay = { size ->
+                pendingStartSize = size
+                pickStartFor = item
+                toStart = null
             },
         )
     }
@@ -199,8 +197,15 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
             title = if (item.isActive) "Change start date for ${item.name}" else "When did you start ${item.name}?",
             initial = item.activeStart ?: LocalDate.now(),
             maxDate = LocalDate.now(),
-            onDismiss = { pickStartFor = null },
-            onPick = { viewModel.start(item.id, it); pickStartFor = null },
+            onDismiss = {
+                pendingStartSize = null
+                pickStartFor = null
+            },
+            onPick = { date ->
+                viewModel.start(item.id, date, pendingStartSize)
+                pendingStartSize = null
+                pickStartFor = null
+            },
         )
     }
 
@@ -247,4 +252,46 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
             },
         )
     }
+}
+
+/** Confirm starting a unit, with a size field for items that track sizes */
+@Composable
+private fun StartDialog(item: Item, onDismiss: () -> Unit, onStart: (Double?) -> Unit, onOtherDay: (Double?) -> Unit) {
+    val usual = item.sizeAmount
+    var sizeText by remember { mutableStateOf(usual?.let { amount -> Calc.sizeLabel(amount, null) }.orEmpty()) }
+    val size = sizeText.toDoubleOrNull()?.takeIf { amount -> amount > 0 }
+    val validSize = usual == null || size != null
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Start ${item.name}?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Start using a new one today? This begins tracking how long it lasts.")
+                if (item.unitsLeft <= 0 && !item.isActive) {
+                    Text("You had none left, so this counts a new order of ${item.quantity}.")
+                }
+                if (usual != null) {
+                    // A plain item count is never labeled on the main screen
+                    val unit = item.sizeUnit?.takeIf { name -> name != Calc.ITEM_UNIT }
+                    OutlinedTextField(
+                        value = sizeText,
+                        onValueChange = { text -> sizeText = text },
+                        label = { Text("Size of this one" + (unit?.let { " ($it)" } ?: "")) },
+                        supportingText = { Text("Usually ${Calc.sizeLabel(usual, unit)}") },
+                        isError = !validSize,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(enabled = validSize, onClick = { onStart(size) }) { Text("Start") } },
+        dismissButton = {
+            Row {
+                TextButton(enabled = validSize, onClick = { onOtherDay(size) }) { Text("Other day…") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }

@@ -32,6 +32,7 @@ object Store {
                     put("id", entry.id)
                     put("start", entry.start.toString())
                     put("end", entry.end.toString())
+                    put("size", entry.size ?: JSONObject.NULL)
                     put("updatedAt", entry.updatedAt)
                     put("deleted", entry.deleted)
                 })
@@ -43,6 +44,9 @@ object Store {
                 put("imageBase64", item.imageBase64 ?: JSONObject.NULL)
                 put("quantity", item.quantity)
                 put("unitsLeft", item.unitsLeft)
+                put("sizeAmount", item.sizeAmount ?: JSONObject.NULL)
+                put("sizeUnit", item.sizeUnit ?: JSONObject.NULL)
+                put("activeSize", item.activeSize ?: JSONObject.NULL)
                 put("activeStart", item.activeStart?.toString() ?: JSONObject.NULL)
                 put("subscription", item.subscription ?: JSONObject.NULL)
                 put("lastDelivery", item.lastDelivery?.toString() ?: JSONObject.NULL)
@@ -193,6 +197,7 @@ object Store {
                 id = entryJson.getString("id"),
                 start = LocalDate.parse(entryJson.getString("start")),
                 end = LocalDate.parse(entryJson.getString("end")),
+                size = entryJson.optDoubleOrNull("size"),
                 updatedAt = entryJson.optLong("updatedAt", 0L),
                 deleted = entryJson.optBoolean("deleted", false),
             )
@@ -204,6 +209,9 @@ object Store {
             imageBase64 = json.optStringOrNull("imageBase64"),
             quantity = json.optInt("quantity", 1),
             unitsLeft = json.optInt("unitsLeft", 1),
+            sizeAmount = json.optDoubleOrNull("sizeAmount"),
+            sizeUnit = json.optStringOrNull("sizeUnit"),
+            activeSize = json.optDoubleOrNull("activeSize"),
             activeStart = json.optStringOrNull("activeStart")?.let(LocalDate::parse),
             subscription = json.optStringOrNull("subscription"),
             lastDelivery = json.optStringOrNull("lastDelivery")?.let(LocalDate::parse),
@@ -212,6 +220,8 @@ object Store {
             deleted = json.optBoolean("deleted", false),
         )
     }
+
+    private fun JSONObject.optDoubleOrNull(key: String): Double? = if (isNull(key)) null else optDouble(key)
 
     private fun JSONObject.optStringOrNull(key: String): String? =
         if (isNull(key)) null else optString(key).ifBlank { null }
