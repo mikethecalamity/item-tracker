@@ -115,8 +115,9 @@ fun ItemCard(
             Spacer(Modifier.height(6.dp))
             DurationLabel(item)
             Text(
-                item.activeStart?.let { start -> "since ${Calc.shortDate(start, today)} · ${item.unitsLeft} left" }
-                    ?: "not in use · ${item.unitsLeft} left",
+                (item.activeStart?.let { start -> "since ${Calc.shortDate(start, today)}" } ?: "not in use") +
+                    // Single-unit orders have nothing to count down
+                    if (item.quantity > 1) " · ${item.unitsLeft} left" else "",
                 style = MaterialTheme.typography.labelSmall,
                 color = if (item.isActive) InUseGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
