@@ -235,8 +235,8 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Import CSV (replaces all data)") }
                 Text(
-                    "Columns: name, amazon_url, quantity, in_use_since, subscription, last_delivery, " +
-                        "use_start, use_end, use_quantity. " +
+                    "Columns: name, amazon_url, quantity (per order), units_left, in_use_since, subscription, " +
+                        "last_delivery, use_start, use_end. " +
                         "Dates as YYYY-MM-DD, one row per past use. Pictures aren't included in CSV; " +
                         "items with the same name keep their picture on import.",
                     style = MaterialTheme.typography.bodySmall,

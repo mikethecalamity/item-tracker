@@ -172,7 +172,13 @@ fun HomeScreen(viewModel: MainViewModel, onOpenHistory: (String) -> Unit, onOpen
     toStart?.let { item ->
         ConfirmDialog(
             title = "Start ${item.name}?",
-            text = "Start using a new one today? This begins tracking how long it lasts.",
+            text = "Start using a new one today? This begins tracking how long it lasts." +
+                if (item.unitsLeft <= 0 && !item.isActive) {
+                    "\n\nYou had none left, so this counts a new order of ${item.quantity}."
+                }
+                else {
+                    ""
+                },
             confirmLabel = "Start",
             onDismiss = { toStart = null },
             onConfirm = {

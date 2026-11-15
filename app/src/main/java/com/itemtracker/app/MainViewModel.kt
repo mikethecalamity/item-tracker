@@ -120,7 +120,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      *
      * @param name the short name
      * @param amazonUrl the product link, or null
-     * @param quantity units per use
+     * @param quantity units per order; a new item starts with that many units on hand
      * @param imageBase64 the picture, or null
      */
     fun addItem(name: String, amazonUrl: String?, quantity: Int, imageBase64: String?) = mutate { current ->
@@ -128,6 +128,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             name = name.trim(),
             amazonUrl = amazonUrl?.trim()?.ifBlank { null },
             quantity = quantity.coerceAtLeast(1),
+            unitsLeft = quantity.coerceAtLeast(1),
             imageBase64 = imageBase64,
         )
         current.copy(items = current.items + item)
@@ -144,6 +145,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             name = details.name.trim().ifBlank { item.name },
             amazonUrl = details.amazonUrl?.trim()?.ifBlank { null },
             quantity = details.quantity.coerceAtLeast(1),
+            unitsLeft = details.unitsLeft.coerceAtLeast(0),
             subscription = details.subscription,
             lastDelivery = details.lastDelivery,
             updatedAt = System.currentTimeMillis(),
@@ -155,6 +157,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val name: String,
         val amazonUrl: String?,
         val quantity: Int,
+        val unitsLeft: Int,
         val subscription: String?,
         val lastDelivery: LocalDate?,
     )
@@ -179,13 +182,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Start using an item, or change the start date of the current use
+     * Start a unit, or change the start date of the current one; with none left, a new order is counted in
      *
      * @param id the item id
      * @param date the start date
      */
     fun start(id: String, date: LocalDate = LocalDate.now()) = mutateItem(id) { item ->
-        item.copy(activeStart = date, updatedAt = System.currentTimeMillis())
+        // Starting with none left means a new order arrived
+        item.copy(
+            activeStart = date,
+            unitsLeft = if (item.unitsLeft <= 0) item.quantity else item.unitsLeft,
+            updatedAt = System.currentTimeMillis(),
+        )
     }
 
     /**
@@ -198,7 +206,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Stop the current use and add it to the history
+     * Stop the current unit, add it to the history and count it off the units left
      *
      * @param id the item id
      * @param endDate the day the item ran out; dates before the start count as the start date
@@ -208,21 +216,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val end = if (endDate.isBefore(start)) start else endDate
         item.copy(
             activeStart = null,
-            history = item.history + UsageEntry(start = start, end = end, quantity = item.quantity),
+            history = item.history + UsageEntry(start = start, end = end),
+            unitsLeft = (item.unitsLeft - 1).coerceAtLeast(0),
             updatedAt = System.currentTimeMillis(),
         )
     }
 
     /**
-     * Add a past use
+     * Add a past use of a single unit
      *
      * @param id the item id
      * @param start the start date
      * @param end the run-out date
-     * @param quantity units the use covered
      */
-    fun addEntry(id: String, start: LocalDate, end: LocalDate, quantity: Int) = mutateItem(id) { item ->
-        item.copy(history = item.history + UsageEntry(start = start, end = end, quantity = quantity.coerceAtLeast(1)))
+    fun addEntry(id: String, start: LocalDate, end: LocalDate) = mutateItem(id) { item ->
+        item.copy(history = item.history + UsageEntry(start = start, end = end))
+    }
+
+    /**
+     * Record a delivery: add one order quantity to the units left and make it the last delivery
+     *
+     * @param id the item id
+     * @param date the delivery date
+     */
+    fun deliveryArrived(id: String, date: LocalDate = LocalDate.now()) = mutateItem(id) { item ->
+        item.copy(
+            unitsLeft = item.unitsLeft + item.quantity,
+            lastDelivery = date,
+            updatedAt = System.currentTimeMillis(),
+        )
     }
 
     /**

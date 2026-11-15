@@ -67,9 +67,19 @@ finished uses. Each kind can be switched off in Settings.
 **Heads-up days** (formerly "Due soon") sets both the order badge and how early delivery alerts appear. Set it a bit
 earlier than Amazon's cutoff for changing a delivery.
 
+### Units and orders
+- Every timer tracks **one unit** (one tube, one bottle).
+- **Order quantity** (☰ → Edit) is how many units come per order. The tile shows the per-order time: per-unit
+  average × order quantity.
+- **Units left** includes the one in use. It drops by one each time you finish a unit. Starting a unit with 0 left
+  counts a new order (units left becomes the order quantity), and **Delivery arrived** on the item screen adds an
+  order's worth and sets the last delivery to today. You can always correct it in Edit.
+- **This unit runs out** = start + per-unit average. **All units run out** = start + per-unit average × units left;
+  the order date, badge, ⚠ timing check and delivery alerts use it.
+
 ### The numbers
-- Each use's length is stored in exact days and divided by the quantity it covered (per-unit days).
-  The average is the per-unit mean × the item's current quantity, so changing the quantity rescales it.
+- Each use is one unit, stored in exact days. The per-order average is the per-unit mean × the order quantity,
+  so changing the order quantity rescales it.
 - Shown values round **up** to: 1, 2, 3 weeks, 1 month, 5, 6, 7 weeks, 2 months, 3 months, …
   (Months allow ~1.5 days of slack because calendar months vary in length.)
 - **Run-out** = in-use start + exact average.
@@ -83,7 +93,7 @@ For partner mode, both phones choose the same file ("Use an existing sync file")
 If your partner shared the file with you, add it to your My Drive (Drive → ⋮ → Organize → Add shortcut) so it shows up in the picker.
 
 ### CSV
-`name,amazon_url,quantity,in_use_since,subscription,last_delivery,use_start,use_end,use_quantity` with one row per past use and dates as `YYYY-MM-DD`.
+`name,amazon_url,quantity,units_left,in_use_since,subscription,last_delivery,use_start,use_end` with one row per past use and dates as `YYYY-MM-DD`.
 Import replaces everything, but a backup is saved first (Settings → *Restore data from before the last import*).
 
 ### Amazon

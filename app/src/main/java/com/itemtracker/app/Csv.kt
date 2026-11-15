@@ -7,21 +7,22 @@ import java.time.format.DateTimeParseException
  * Export and import items as CSV
  *
  * One row per past use; items with no history get one row with blank use columns. Dates are YYYY-MM-DD. Images are
- * not included. Files exported before the subscription columns existed still import.
+ * not included. Older exports still import: missing columns get defaults, and a use_quantity column is ignored
+ * because every use is a single unit.
  */
 object Csv {
     private const val NAME = "name"
     private const val AMAZON_URL = "amazon_url"
     private const val QUANTITY = "quantity"
+    private const val UNITS_LEFT = "units_left"
     private const val IN_USE_SINCE = "in_use_since"
     private const val SUBSCRIPTION = "subscription"
     private const val LAST_DELIVERY = "last_delivery"
     private const val USE_START = "use_start"
     private const val USE_END = "use_end"
-    private const val USE_QUANTITY = "use_quantity"
     private const val LINE_END = "\r\n"
     private val HEADER =
-        listOf(NAME, AMAZON_URL, QUANTITY, IN_USE_SINCE, SUBSCRIPTION, LAST_DELIVERY, USE_START, USE_END, USE_QUANTITY)
+        listOf(NAME, AMAZON_URL, QUANTITY, UNITS_LEFT, IN_USE_SINCE, SUBSCRIPTION, LAST_DELIVERY, USE_START, USE_END)
 
     /**
      * Export the items that are not deleted
@@ -33,15 +34,16 @@ object Csv {
         val text = StringBuilder().append(HEADER.joinToString(",")).append(LINE_END)
         data.liveItems.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, Item::name)).forEach { item ->
             val itemCells = listOf(
-                item.name, item.amazonUrl.orEmpty(), item.quantity.toString(), item.activeStart?.toString().orEmpty(),
-                item.subscription.orEmpty(), item.lastDelivery?.toString().orEmpty(),
+                item.name, item.amazonUrl.orEmpty(), item.quantity.toString(), item.unitsLeft.toString(),
+                item.activeStart?.toString().orEmpty(), item.subscription.orEmpty(),
+                item.lastDelivery?.toString().orEmpty(),
             )
             val entries = item.liveHistory.sortedBy(UsageEntry::start)
             if (entries.isEmpty()) {
-                text.append(row(itemCells + listOf("", "", ""))).append(LINE_END)
+                text.append(row(itemCells + listOf("", ""))).append(LINE_END)
             }
             entries.forEach { entry ->
-                val entryCells = listOf(entry.start.toString(), entry.end.toString(), entry.quantity.toString())
+                val entryCells = listOf(entry.start.toString(), entry.end.toString())
                 text.append(row(itemCells + entryCells)).append(LINE_END)
             }
         }
@@ -132,6 +134,7 @@ object Csv {
                 amazonUrl = first.cell(AMAZON_URL).ifEmpty { null },
                 imageBase64 = imagesByName[name.lowercase()],
                 quantity = first.cell(QUANTITY).toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                unitsLeft = first.cell(UNITS_LEFT).toIntOrNull()?.coerceAtLeast(0) ?: 1,
                 activeStart = first.date(IN_USE_SINCE),
                 subscription = first.cell(SUBSCRIPTION).takeIf { label -> Calc.frequency(label) != null },
                 lastDelivery = first.date(LAST_DELIVERY),
@@ -168,10 +171,7 @@ object Csv {
                 start == null || end == null ->
                     throw IllegalArgumentException("Row $line: needs both $USE_START and $USE_END")
                 end.isBefore(start) -> throw IllegalArgumentException("Row $line: $USE_END is before $USE_START")
-                else -> {
-                    val quantity = cell(USE_QUANTITY).toIntOrNull()?.coerceAtLeast(1) ?: 1
-                    UsageEntry(start = start, end = end, quantity = quantity)
-                }
+                else -> UsageEntry(start = start, end = end)
             }
         }
     }

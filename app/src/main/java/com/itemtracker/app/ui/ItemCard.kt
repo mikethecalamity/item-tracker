@@ -115,7 +115,8 @@ fun ItemCard(
             Spacer(Modifier.height(6.dp))
             DurationLabel(item)
             Text(
-                item.activeStart?.let { "in use since " + Calc.shortDate(it, today) } ?: "not in use",
+                item.activeStart?.let { start -> "since ${Calc.shortDate(start, today)} · ${item.unitsLeft} left" }
+                    ?: "not in use · ${item.unitsLeft} left",
                 style = MaterialTheme.typography.labelSmall,
                 color = if (item.isActive) InUseGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

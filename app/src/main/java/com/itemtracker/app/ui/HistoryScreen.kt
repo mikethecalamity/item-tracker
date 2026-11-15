@@ -93,6 +93,7 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
     var addEntry by remember { mutableStateOf(false) }
     var deleteEntry by remember { mutableStateOf<UsageEntry?>(null) }
     var confirmCancel by remember { mutableStateOf(false) }
+    var confirmDelivery by remember { mutableStateOf(false) }
     var imageBusy by remember { mutableStateOf(false) }
     var imageStatus by remember { mutableStateOf<String?>(null) }
 
@@ -163,7 +164,14 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
                 }
             }
 
-            item { SummaryCard(item, settings, onCancelCurrent = { confirmCancel = true }) }
+            item {
+                SummaryCard(
+                    item,
+                    settings,
+                    onCancelCurrent = { confirmCancel = true },
+                    onDeliveryArrived = { confirmDelivery = true },
+                )
+            }
 
             if (item.amazonUrl != null) {
                 item {
@@ -223,10 +231,9 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
         title = "Add past use",
         initialStart = LocalDate.now().minusDays(28),
         initialEnd = LocalDate.now(),
-        initialQuantity = item.quantity,
         onDismiss = { addEntry = false },
-    ) { start, end, quantity ->
-        viewModel.addEntry(item.id, start, end, quantity)
+    ) { start, end ->
+        viewModel.addEntry(item.id, start, end)
         addEntry = false
     }
 
@@ -235,13 +242,24 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
             title = "Edit use",
             initialStart = entry.start,
             initialEnd = entry.end,
-            initialQuantity = entry.quantity,
             onDismiss = { editEntry = null },
-        ) { start, end, quantity ->
-            viewModel.updateEntry(item.id, entry.copy(start = start, end = end, quantity = quantity))
+        ) { start, end ->
+            viewModel.updateEntry(item.id, entry.copy(start = start, end = end))
             editEntry = null
         }
     }
+
+    if (confirmDelivery) ConfirmDialog(
+        title = "Delivery arrived?",
+        text = "Adds ${item.quantity} to units left (${item.unitsLeft} → ${item.unitsLeft + item.quantity}) " +
+            "and sets the last delivery to today.",
+        confirmLabel = "Add",
+        onDismiss = { confirmDelivery = false },
+        onConfirm = {
+            viewModel.deliveryArrived(item.id)
+            confirmDelivery = false
+        },
+    )
 
     deleteEntry?.let { entry ->
         ConfirmDialog(
@@ -265,29 +283,43 @@ fun HistoryScreen(viewModel: MainViewModel, itemId: String, onBack: () -> Unit) 
 }
 
 @Composable
-private fun SummaryCard(item: Item, settings: com.itemtracker.app.Settings, onCancelCurrent: () -> Unit) {
+private fun SummaryCard(
+    item: Item,
+    settings: com.itemtracker.app.Settings,
+    onCancelCurrent: () -> Unit,
+    onDeliveryArrived: () -> Unit,
+) {
     val today = LocalDate.now()
-    val avg = Calc.averageDays(item)
+    val perOrder = Calc.averageDays(item)
     val perUnit = Calc.averageDaysPerUnit(item)
     val estimate = Calc.estimate(item, settings, today)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            LabeledValue("Average", if (avg == null) "— (no finished uses yet)" else Calc.roundedLabel(avg))
-            if (avg != null && perUnit != null) {
+            LabeledValue(
+                "Per order of ${item.quantity}",
+                if (perOrder == null) "— (no finished uses yet)" else Calc.roundedLabel(perOrder),
+            )
+            if (perUnit != null) {
+                LabeledValue("Per unit", Calc.roundedLabel(perUnit))
                 Text(
-                    "Exact: %.1f days".format(avg) +
-                        if (item.quantity > 1) " (%.1f per unit × %d)".format(perUnit, item.quantity) else "",
+                    "Exact: %.1f days per unit".format(perUnit) +
+                        if (item.quantity > 1) ", %.1f per order".format(perUnit * item.quantity) else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            LabeledValue("Quantity", item.quantity.toString())
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Units left", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = onDeliveryArrived) { Text("Delivery arrived") }
+                Text(item.unitsLeft.toString(), fontWeight = FontWeight.SemiBold)
+            }
             SubscriptionRows(item, settings, today)
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             if (item.activeStart != null) {
                 LabeledValue("In use since", Calc.longDate(item.activeStart))
                 if (estimate != null) {
-                    LabeledValue("Est. run-out", Calc.longDate(estimate.runOut))
+                    LabeledValue("This unit runs out", Calc.longDate(estimate.unitRunOut))
+                    LabeledValue("All units run out", Calc.longDate(estimate.runOut))
                     LabeledValue(
                         "Est. order date",
                         Calc.longDate(estimate.orderDate) + when {
@@ -299,7 +331,8 @@ private fun SummaryCard(item: Item, settings: com.itemtracker.app.Settings, onCa
                     )
                 }
                 else {
-                    LabeledValue("Est. run-out", "—")
+                    LabeledValue("This unit runs out", "—")
+                    LabeledValue("All units run out", "—")
                     LabeledValue("Est. order date", "—")
                     Text(
                         "Estimates appear after the first finished use.",
@@ -386,7 +419,7 @@ private fun SwipeEntryRow(entry: UsageEntry, onClick: () -> Unit, onRequestDelet
             Column(Modifier.weight(1f)) {
                 Text("${Calc.longDate(entry.start)} → ${Calc.longDate(entry.end)}")
                 Text(
-                    "$days days" + if (entry.quantity > 1) " · qty ${entry.quantity}" else "",
+                    "$days days",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -402,6 +435,7 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainVi
     var name by remember { mutableStateOf(item.name) }
     var link by remember { mutableStateOf(item.amazonUrl.orEmpty()) }
     var quantity by remember { mutableIntStateOf(item.quantity) }
+    var unitsLeft by remember { mutableIntStateOf(item.unitsLeft) }
     var subscription by remember { mutableStateOf(item.subscription) }
     var lastDelivery by remember { mutableStateOf(item.lastDelivery) }
     var pickingDelivery by remember { mutableStateOf(false) }
@@ -425,13 +459,12 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainVi
                     modifier = Modifier.fillMaxWidth(),
                 )
                 QuantityRow(quantity) { quantity = it }
-                if (quantity != item.quantity) {
-                    Text(
-                        "The average will scale with the new quantity. Past uses keep the quantity they had.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                QuantityRow(
+                    unitsLeft,
+                    label = "Units left",
+                    description = "On hand, including the one in use",
+                    minimum = 0,
+                ) { unitsLeft = it }
                 FrequencyPicker(subscription) { subscription = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Last delivery", Modifier.weight(1f))
@@ -448,7 +481,8 @@ private fun EditDetailsDialog(item: Item, onDismiss: () -> Unit, onSave: (MainVi
             TextButton(
                 enabled = name.isNotBlank(),
                 onClick = {
-                    onSave(MainViewModel.ItemDetails(name, link.ifBlank { null }, quantity, subscription, lastDelivery))
+                    val amazonUrl = link.ifBlank { null }
+                    onSave(MainViewModel.ItemDetails(name, amazonUrl, quantity, unitsLeft, subscription, lastDelivery))
                 },
             ) { Text("Save") }
         },
@@ -500,13 +534,11 @@ private fun EntryDialog(
     title: String,
     initialStart: LocalDate,
     initialEnd: LocalDate,
-    initialQuantity: Int,
     onDismiss: () -> Unit,
-    onSave: (LocalDate, LocalDate, Int) -> Unit,
+    onSave: (LocalDate, LocalDate) -> Unit,
 ) {
     var start by remember { mutableStateOf(initialStart) }
     var end by remember { mutableStateOf(initialEnd) }
-    var quantity by remember { mutableIntStateOf(initialQuantity) }
     var picking by remember { mutableStateOf<DateField?>(null) }
     val valid = !end.isBefore(start)
 
@@ -523,7 +555,6 @@ private fun EntryDialog(
                     Text("Ran out", Modifier.weight(1f))
                     OutlinedButton(onClick = { picking = DateField.END }) { Text(Calc.longDate(end)) }
                 }
-                QuantityRow(quantity) { quantity = it }
                 val days = Calc.daysBetween(start, end)
                 Text(
                     if (valid) "$days days → ${Calc.roundedLabel(days.toDouble())}"
@@ -533,7 +564,7 @@ private fun EntryDialog(
                 )
             }
         },
-        confirmButton = { TextButton(enabled = valid, onClick = { onSave(start, end, quantity) }) { Text("Save") } },
+        confirmButton = { TextButton(enabled = valid, onClick = { onSave(start, end) }) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 

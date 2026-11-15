@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 private const val ITEM_ID = "item-1"
 private const val ENTRY_ID = "entry-1"
 private val ENTRY = UsageEntry(
-    id = ENTRY_ID, start = LocalDate.of(2026, 9, 1), end = LocalDate.of(2026, 9, 29), quantity = 2, updatedAt = 100,
+    id = ENTRY_ID, start = LocalDate.of(2026, 9, 1), end = LocalDate.of(2026, 9, 29), updatedAt = 100,
 )
 private val ITEM = Item(
     id = ITEM_ID,
@@ -16,6 +16,7 @@ private val ITEM = Item(
     amazonUrl = "https://a.co/d/abc",
     imageBase64 = "aW1hZ2U=",
     quantity = 2,
+    unitsLeft = 3,
     activeStart = LocalDate.of(2026, 10, 1),
     history = listOf(ENTRY),
     subscription = "2 months",

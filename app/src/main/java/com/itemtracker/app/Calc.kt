@@ -64,8 +64,19 @@ object Calc {
         Frequency("7 weeks", 7, StepUnit.WEEK),
     ) + (2..12).map { months -> Frequency("$months months", months, StepUnit.MONTH) }
 
-    /** Estimated run-out and order dates for an item in use */
-    data class Estimate(val runOut: LocalDate, val orderDate: LocalDate, val daysUntilOrder: Long)
+    /**
+     * Estimated dates for an item in use
+     *
+     * @property unitRunOut when the unit in use runs out
+     * @property runOut when all units on hand run out
+     * @property orderDate when to order, based on [runOut]
+     */
+    data class Estimate(
+        val unitRunOut: LocalDate,
+        val runOut: LocalDate,
+        val orderDate: LocalDate,
+        val daysUntilOrder: Long,
+    )
 
     /**
      * Count the days between two dates, where a same-day start and stop counts as one day
@@ -85,12 +96,11 @@ object Calc {
     fun averageDaysPerUnit(item: Item): Double? {
         val entries = item.liveHistory
         if (entries.isEmpty()) return null
-        return entries.map { entry -> daysBetween(entry.start, entry.end).toDouble() / max(1, entry.quantity) }
-            .average()
+        return entries.map { entry -> daysBetween(entry.start, entry.end).toDouble() }.average()
     }
 
     /**
-     * Average the days for the current quantity of an item, without rounding
+     * Average the days one order lasts (the per-unit average times the order quantity), without rounding
      *
      * @param item the [Item] to use
      * @return the average, or null when the item has no finished uses
@@ -189,10 +199,12 @@ object Calc {
      */
     fun estimate(item: Item, settings: Settings, today: LocalDate = LocalDate.now()): Estimate? {
         val start = item.activeStart ?: return null
-        val average = averageDays(item) ?: return null
-        val runOut = start.plusDays(ceil(average).toLong())
+        val perUnit = averageDaysPerUnit(item) ?: return null
+        val unitRunOut = start.plusDays(ceil(perUnit).toLong())
+        // Units left includes the one in use; never count fewer than that one
+        val runOut = start.plusDays(ceil(perUnit * max(1, item.unitsLeft)).toLong())
         val order = orderDateFor(runOut, settings.orderDay, settings.graceDays)
-        return Estimate(runOut, order, ChronoUnit.DAYS.between(today, order))
+        return Estimate(unitRunOut, runOut, order, ChronoUnit.DAYS.between(today, order))
     }
 
     /**
@@ -212,11 +224,10 @@ object Calc {
         val usage = roundedLabel(average)
         val frequencyWarning = if (usage == frequency.label) null
         else "Your subscription is every ${frequency.label}, but you use one every $usage."
-        val start = item.activeStart
+        val runOut = estimate(item, settings, today)?.runOut
         val next = nextDelivery(item, today)
-        val timingWarning = if (start == null || next == null) null
+        val timingWarning = if (runOut == null || next == null) null
         else {
-            val runOut = start.plusDays(ceil(average).toLong())
             when {
                 next.isAfter(runOut.plusDays(settings.graceDays.toLong())) ->
                     "The next delivery (${shortDate(next, today)}) comes after you run out " +

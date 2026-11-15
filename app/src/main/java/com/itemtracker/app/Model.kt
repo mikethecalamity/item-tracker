@@ -4,9 +4,8 @@ import java.time.LocalDate
 import java.util.UUID
 
 /**
- * Record one finished use of an item, from the day it was started to the day it ran out
+ * Record one finished use of a single unit, from the day it was started to the day it ran out
  *
- * @property quantity how many units the use covered, so averages can be computed per unit
  * @property updatedAt last change time in epoch milliseconds, used when merging with the sync file
  * @property deleted whether the entry was deleted; kept as a tombstone so deletes reach the sync file
  */
@@ -14,7 +13,6 @@ data class UsageEntry(
     val id: String = UUID.randomUUID().toString(),
     val start: LocalDate,
     val end: LocalDate,
-    val quantity: Int = 1,
     val updatedAt: Long = System.currentTimeMillis(),
     val deleted: Boolean = false,
 )
@@ -22,6 +20,8 @@ data class UsageEntry(
 /**
  * Hold a tracked household item and its usage history
  *
+ * @property quantity units per order, such as 3 for a 3-pack
+ * @property unitsLeft units on hand, including the one in use
  * @property imageBase64 small base64 JPEG picture, stored inline so it syncs with the data
  * @property activeStart the day the current use started, or null when the item is not in use
  * @property subscription the subscription frequency label, such as "2 months", or null when not set
@@ -35,6 +35,7 @@ data class Item(
     val amazonUrl: String? = null,
     val imageBase64: String? = null,
     val quantity: Int = 1,
+    val unitsLeft: Int = 1,
     val activeStart: LocalDate? = null,
     val history: List<UsageEntry> = emptyList(),
     val subscription: String? = null,

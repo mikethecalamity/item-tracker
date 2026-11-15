@@ -2,7 +2,6 @@ package com.itemtracker.app
 
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import kotlin.math.ceil
 
 /** Decide what the daily summary notification should say */
 object Alerts {
@@ -17,7 +16,7 @@ object Alerts {
      * Delivery alerts look at the next order day when it is within the heads-up days: a surplus when the item ships
      * in that delivery more than one week or month (its subscription unit) before it is needed, and a shortfall when
      * it does not ship then but runs out (beyond the grace days) before its own next delivery. The run-out alert asks
-     * about items still in use a week past their estimated run-out.
+     * about units still in use a week past their estimated run-out.
      *
      * @param items the items to check
      * @param settings the [Settings] to use
@@ -35,12 +34,10 @@ object Alerts {
 
     private fun deliveryAlert(item: Item, settings: Settings, today: LocalDate): String? {
         val frequency = Calc.frequency(item.subscription) ?: return null
-        val start = item.activeStart ?: return null
-        val average = Calc.averageDays(item) ?: return null
+        val runOut = Calc.estimate(item, settings, today)?.runOut ?: return null
         val next = Calc.nextDelivery(item, today) ?: return null
         val orderDay = Calc.nextOrderDay(today, settings.orderDay)
         if (ChronoUnit.DAYS.between(today, orderDay) > settings.headsUpDays) return null
-        val runOut = start.plusDays(ceil(average).toLong())
         val inThisDelivery = Math.abs(ChronoUnit.DAYS.between(orderDay, next)) <= SAME_DELIVERY_DAYS
         val delivery = Calc.shortDate(orderDay, today)
         return when {
@@ -56,7 +53,7 @@ object Alerts {
 
     private fun runOutAlert(item: Item, settings: Settings, today: LocalDate): String? {
         val estimate = Calc.estimate(item, settings, today) ?: return null
-        if (!today.isAfter(estimate.runOut.plusDays(RUN_OUT_SLACK_DAYS))) return null
-        return "Did you run out of ${item.name}? It was expected around ${Calc.shortDate(estimate.runOut, today)}."
+        if (!today.isAfter(estimate.unitRunOut.plusDays(RUN_OUT_SLACK_DAYS))) return null
+        return "Did you run out of ${item.name}? It was expected around ${Calc.shortDate(estimate.unitRunOut, today)}."
     }
 }

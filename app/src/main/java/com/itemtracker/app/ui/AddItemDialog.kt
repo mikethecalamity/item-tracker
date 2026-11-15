@@ -160,23 +160,34 @@ fun AddItemDialog(
 }
 
 /**
- * Show a stepper for how many units one tracked use covers
+ * Show a labeled number stepper
  *
- * @param value the current quantity
- * @param onChange called with the new quantity
+ * @param value the current number
+ * @param label the label
+ * @param description a short explanation under the label
+ * @param minimum the smallest allowed number
+ * @param onChange called with the new number
  */
 @Composable
-fun QuantityRow(value: Int, onChange: (Int) -> Unit) {
+fun QuantityRow(
+    value: Int,
+    label: String = "Order quantity",
+    description: String = "Units per order, such as 3 for a 3-pack",
+    minimum: Int = 1,
+    onChange: (Int) -> Unit,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("Quantity", style = MaterialTheme.typography.bodyLarge)
+            Text(label, style = MaterialTheme.typography.bodyLarge)
             Text(
-                "Units per use / order",
+                description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        OutlinedButton(onClick = { onChange((value - 1).coerceAtLeast(1)) }, enabled = value > 1) { Text("−") }
+        OutlinedButton(onClick = { onChange((value - 1).coerceAtLeast(minimum)) }, enabled = value > minimum) {
+            Text("−")
+        }
         Text(
             "$value",
             style = MaterialTheme.typography.titleMedium,

@@ -30,14 +30,14 @@ internal class CalcTest {
     inner class Averages {
         @Test
         fun averageDaysPerUnitTest() {
-            val item = item(entry(14, 1), entry(28, 2), entry(21, 1))
+            val item = item(entry(14), entry(28), entry(21))
 
-            assertThat(Calc.averageDaysPerUnit(item)).isEqualTo(49.0 / 3)
+            assertThat(Calc.averageDaysPerUnit(item)).isEqualTo(21.0)
         }
 
         @Test
         fun averageDaysPerUnitTestIgnoresDeleted() {
-            val item = item(entry(14, 1), entry(100, 1).copy(deleted = true))
+            val item = item(entry(14), entry(100).copy(deleted = true))
 
             assertThat(Calc.averageDaysPerUnit(item)).isEqualTo(14.0)
         }
@@ -49,9 +49,9 @@ internal class CalcTest {
 
         @Test
         fun averageDaysTestScalesWithQuantity() {
-            val item = item(entry(30, 3)).copy(quantity = 2)
+            val item = item(entry(10)).copy(quantity = 3)
 
-            assertThat(Calc.averageDays(item)).isEqualTo(20.0)
+            assertThat(Calc.averageDays(item)).isEqualTo(30.0)
         }
 
         @Test
@@ -74,7 +74,7 @@ internal class CalcTest {
 
         @Test
         fun averageLabelTest() {
-            assertThat(Calc.averageLabel(item(entry(18, 1)))).isEqualTo("3 weeks")
+            assertThat(Calc.averageLabel(item(entry(18)))).isEqualTo("3 weeks")
         }
 
         @Test
@@ -102,16 +102,32 @@ internal class CalcTest {
 
         @Test
         fun estimateTest() {
-            val item = item(entry(28, 1)).copy(activeStart = LocalDate.of(2026, 10, 28))
+            val item = item(entry(28)).copy(activeStart = LocalDate.of(2026, 10, 28))
 
             assertThat(Calc.estimate(item, SETTINGS, TODAY)).isEqualTo(
-                Calc.Estimate(LocalDate.of(2026, 11, 25), LocalDate.of(2026, 12, 1), 28),
+                Calc.Estimate(LocalDate.of(2026, 11, 25), LocalDate.of(2026, 11, 25), LocalDate.of(2026, 12, 1), 28),
             )
         }
 
         @Test
+        fun estimateTestUnitsLeft() {
+            val item = item(entry(10)).copy(quantity = 3, unitsLeft = 3, activeStart = LocalDate.of(2026, 10, 28))
+
+            assertThat(Calc.estimate(item, SETTINGS, TODAY)).isEqualTo(
+                Calc.Estimate(LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 27), LocalDate.of(2026, 12, 1), 28),
+            )
+        }
+
+        @Test
+        fun estimateTestNoUnitsLeftCountsCurrent() {
+            val item = item(entry(10)).copy(unitsLeft = 0, activeStart = LocalDate.of(2026, 10, 28))
+
+            assertThat(requireNotNull(Calc.estimate(item, SETTINGS, TODAY)).runOut).isEqualTo(LocalDate.of(2026, 11, 7))
+        }
+
+        @Test
         fun estimateTestNotInUse() {
-            assertThat(Calc.estimate(item(entry(28, 1)), SETTINGS, TODAY)).isNull()
+            assertThat(Calc.estimate(item(entry(28)), SETTINGS, TODAY)).isNull()
         }
 
         @Test
@@ -121,21 +137,21 @@ internal class CalcTest {
 
         @Test
         fun isDueSoonTest() {
-            val item = item(entry(28, 1)).copy(activeStart = LocalDate.of(2026, 10, 10))
+            val item = item(entry(28)).copy(activeStart = LocalDate.of(2026, 10, 10))
 
             assertThat(Calc.isDueSoon(item, SETTINGS, TODAY)).isTrue()
         }
 
         @Test
         fun isDueSoonTestOutsideWindow() {
-            val item = item(entry(28, 1)).copy(activeStart = LocalDate.of(2026, 10, 28))
+            val item = item(entry(28)).copy(activeStart = LocalDate.of(2026, 10, 28))
 
             assertThat(Calc.isDueSoon(item, SETTINGS, TODAY)).isFalse()
         }
 
         @Test
         fun isDueSoonTestNotInUse() {
-            assertThat(Calc.isDueSoon(item(entry(28, 1)), SETTINGS, TODAY)).isFalse()
+            assertThat(Calc.isDueSoon(item(entry(28)), SETTINGS, TODAY)).isFalse()
         }
     }
 
@@ -189,7 +205,7 @@ internal class CalcTest {
 
         @Test
         fun warningsTestAllGood() {
-            val item = item(entry(28, 1)).copy(
+            val item = item(entry(28)).copy(
                 subscription = "1 month",
                 activeStart = LocalDate.of(2026, 10, 28),
                 lastDelivery = LocalDate.of(2026, 10, 25),
@@ -200,7 +216,7 @@ internal class CalcTest {
 
         @Test
         fun warningsTestFrequencyMismatch() {
-            val item = item(entry(28, 1)).copy(subscription = "2 months")
+            val item = item(entry(28)).copy(subscription = "2 months")
 
             assertThat(Calc.warnings(item, SETTINGS, TODAY))
                 .containsExactly("Your subscription is every 2 months, but you use one every 1 month.")
@@ -208,7 +224,7 @@ internal class CalcTest {
 
         @Test
         fun warningsTestDeliveryTooLate() {
-            val item = item(entry(28, 1)).copy(
+            val item = item(entry(28)).copy(
                 subscription = "1 month",
                 activeStart = LocalDate.of(2026, 10, 10),
                 lastDelivery = LocalDate.of(2026, 10, 25),
@@ -220,7 +236,7 @@ internal class CalcTest {
 
         @Test
         fun warningsTestDeliveryTooEarly() {
-            val item = item(entry(49, 1)).copy(
+            val item = item(entry(49)).copy(
                 subscription = "7 weeks",
                 activeStart = LocalDate.of(2026, 11, 1),
                 lastDelivery = LocalDate.of(2026, 9, 20),
@@ -251,8 +267,8 @@ internal class CalcTest {
 
     @Test
     fun sortedTest() {
-        val dueLater = item(entry(28, 1)).copy(name = "zinc", activeStart = LocalDate.of(2026, 10, 10))
-        val dueSooner = item(entry(14, 1)).copy(name = "Yogurt", activeStart = LocalDate.of(2026, 10, 10))
+        val dueLater = item(entry(28)).copy(name = "zinc", activeStart = LocalDate.of(2026, 10, 10))
+        val dueSooner = item(entry(14)).copy(name = "Yogurt", activeStart = LocalDate.of(2026, 10, 10))
         val apples = item().copy(name = "apples")
         val bread = item().copy(name = "Bread")
 
@@ -264,9 +280,9 @@ internal class CalcTest {
     @Test
     fun sortedTestTieUsesName() {
         val start = LocalDate.of(2026, 10, 20)
-        val soap = item(entry(28, 1)).copy(name = "soap", activeStart = start)
-        val bread = item(entry(28, 1)).copy(name = "Bread", activeStart = start)
-        val later = item(entry(56, 1)).copy(name = "apples", activeStart = start)
+        val soap = item(entry(28)).copy(name = "soap", activeStart = start)
+        val bread = item(entry(28)).copy(name = "Bread", activeStart = start)
+        val later = item(entry(56)).copy(name = "apples", activeStart = start)
 
         assertThat(Calc.sorted(listOf(later, soap, bread), SETTINGS, TODAY).map(Item::name))
             .containsExactly("Bread", "soap", "apples")
@@ -289,6 +305,5 @@ internal class CalcTest {
 
     private fun item(vararg entries: UsageEntry) = Item(name = "Coffee pods", history = entries.toList())
 
-    private fun entry(days: Long, quantity: Int) =
-        UsageEntry(start = TODAY.minusDays(days + 100), end = TODAY.minusDays(100), quantity = quantity)
+    private fun entry(days: Long) = UsageEntry(start = TODAY.minusDays(days + 100), end = TODAY.minusDays(100))
 }

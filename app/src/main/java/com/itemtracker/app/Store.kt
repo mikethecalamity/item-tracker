@@ -32,7 +32,6 @@ object Store {
                     put("id", entry.id)
                     put("start", entry.start.toString())
                     put("end", entry.end.toString())
-                    put("quantity", entry.quantity)
                     put("updatedAt", entry.updatedAt)
                     put("deleted", entry.deleted)
                 })
@@ -43,6 +42,7 @@ object Store {
                 put("amazonUrl", item.amazonUrl ?: JSONObject.NULL)
                 put("imageBase64", item.imageBase64 ?: JSONObject.NULL)
                 put("quantity", item.quantity)
+                put("unitsLeft", item.unitsLeft)
                 put("activeStart", item.activeStart?.toString() ?: JSONObject.NULL)
                 put("subscription", item.subscription ?: JSONObject.NULL)
                 put("lastDelivery", item.lastDelivery?.toString() ?: JSONObject.NULL)
@@ -193,7 +193,6 @@ object Store {
                 id = entryJson.getString("id"),
                 start = LocalDate.parse(entryJson.getString("start")),
                 end = LocalDate.parse(entryJson.getString("end")),
-                quantity = entryJson.optInt("quantity", 1),
                 updatedAt = entryJson.optLong("updatedAt", 0L),
                 deleted = entryJson.optBoolean("deleted", false),
             )
@@ -204,6 +203,7 @@ object Store {
             amazonUrl = json.optStringOrNull("amazonUrl"),
             imageBase64 = json.optStringOrNull("imageBase64"),
             quantity = json.optInt("quantity", 1),
+            unitsLeft = json.optInt("unitsLeft", 1),
             activeStart = json.optStringOrNull("activeStart")?.let(LocalDate::parse),
             subscription = json.optStringOrNull("subscription"),
             lastDelivery = json.optStringOrNull("lastDelivery")?.let(LocalDate::parse),
